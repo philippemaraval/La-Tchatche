@@ -52,3 +52,13 @@ npm run lint     # verifications ESLint
 
 - Le projet ne necessite pas de variables d'environnement pour le moment.
 - Les URLs audio de demonstration sont a remplacer par les fichiers definitifs du podcast.
+
+## Deploiement Cloudflare Pages
+
+Reglages recommandes dans Cloudflare Pages (Build & Deployments):
+
+- Build command: `npm run build`
+- Build output directory: `dist`
+- Node.js version: `22`
+
+Le fichier `public/_redirects` est inclus pour le fallback SPA.
