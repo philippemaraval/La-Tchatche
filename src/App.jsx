@@ -17,7 +17,7 @@ import {
 } from 'lucide-react'
 import laTchatcheLogo from './assets/la-tchatche-logo.png'
 
-const NAV_ITEMS = ['Tous', 'Plage', 'Stade', 'Cours Julien', 'Vieux-Port', 'Favoris']
+const NAV_ITEMS = ['Marché', 'Café', 'Plage', 'Stade', 'Boutiques', 'École']
 
 const LEXICON = {
   accent: 'L accent marseillais est chantant, solaire et tres identitaire.',
@@ -46,7 +46,7 @@ const BASE_EPISODES = [
     id: 'ep-002',
     slug: 'samia-cours-julien-neons',
     title: 'Samia : Neons du Cours Julien',
-    category: 'Cours Julien',
+    category: 'Boutiques',
     location: { label: 'Cours Julien', lat: 43.2933, lng: 5.3836 },
     duration: 248,
     keywords: ['minot', 'fada', 'emboucaner'],
@@ -58,7 +58,7 @@ const BASE_EPISODES = [
     id: 'ep-003',
     slug: 'jeanine-vieux-port-matin',
     title: 'Jeanine : Matin du Vieux-Port',
-    category: 'Vieux-Port',
+    category: 'Café',
     location: { label: 'Vieux-Port', lat: 43.2951, lng: 5.3743 },
     duration: 201,
     keywords: ['gabian', 'accent'],
@@ -82,7 +82,7 @@ const BASE_EPISODES = [
     id: 'ep-005',
     slug: 'nadir-noailles-marche',
     title: 'Nadir : Le Marche qui Deborde',
-    category: 'Cours Julien',
+    category: 'Marché',
     location: { label: 'Noailles', lat: 43.2968, lng: 5.3796 },
     duration: 239,
     keywords: ['emboucaner', 'degun'],
@@ -106,7 +106,7 @@ const BASE_EPISODES = [
     id: 'ep-007',
     slug: 'paolo-port-ferrys',
     title: 'Paolo : Ferrys et Brouillard',
-    category: 'Vieux-Port',
+    category: 'Café',
     location: { label: 'Quai du Port', lat: 43.2969, lng: 5.3718 },
     duration: 255,
     keywords: ['gabian', 'degun'],
@@ -118,7 +118,7 @@ const BASE_EPISODES = [
     id: 'ep-008',
     slug: 'ines-plage-crepuscule',
     title: 'Ines : Crepuscule a Corbieres',
-    category: 'Plage',
+    category: 'École',
     location: { label: 'Corbieres', lat: 43.3282, lng: 5.2921 },
     duration: 244,
     keywords: ['pitchoun', 'accent'],
@@ -263,7 +263,7 @@ function WaveformCanvas({ active, playing, progress }) {
 function App() {
   const [episodes, setEpisodes] = useState(() => buildEpisodeBatch(0, 8))
   const [viewMode, setViewMode] = useState('feed')
-  const [selectedNav, setSelectedNav] = useState('Tous')
+  const [selectedNav, setSelectedNav] = useState(null)
   const [query, setQuery] = useState('')
   const [loadingMore, setLoadingMore] = useState(false)
   const [hasMore, setHasMore] = useState(true)
@@ -534,11 +534,7 @@ function App() {
     const search = query.trim().toLowerCase()
 
     return episodes.filter((episode) => {
-      if (selectedNav === 'Favoris' && !favoriteSet.has(episode.id)) {
-        return false
-      }
-
-      if (selectedNav !== 'Tous' && selectedNav !== 'Favoris' && episode.category !== selectedNav) {
+      if (selectedNav && episode.category !== selectedNav) {
         return false
       }
 
@@ -549,7 +545,7 @@ function App() {
       const haystack = `${episode.title} ${episode.summary} ${episode.category} ${episode.location.label}`.toLowerCase()
       return haystack.includes(search)
     })
-  }, [episodes, favoriteSet, query, selectedNav])
+  }, [episodes, query, selectedNav])
 
   const nearestEpisodes = useMemo(() => {
     if (!userPosition) {
@@ -864,7 +860,7 @@ function App() {
                   }`}
                   onClick={() => {
                     setViewMode('feed')
-                    setSelectedNav(item)
+                    setSelectedNav((current) => (current === item ? null : item))
                   }}
                 >
                   {item}
