@@ -17,7 +17,7 @@ import {
 } from 'lucide-react'
 import laTchatcheLogo from './assets/la-tchatche-logo.png'
 
-const NAV_ITEMS = ['Marché', 'Café', 'Plage', 'Stade', 'Boutiques', 'École']
+const NAV_ITEMS = ['Marchés', 'Cafés', 'Plages', 'Stade', 'Boutiques', 'Écoles']
 
 const LEXICON = {
   accent: 'L accent marseillais est chantant, solaire et tres identitaire.',
@@ -58,7 +58,7 @@ const BASE_EPISODES = [
     id: 'ep-003',
     slug: 'jeanine-vieux-port-matin',
     title: 'Jeanine : Matin du Vieux-Port',
-    category: 'Café',
+    category: 'Cafés',
     location: { label: 'Vieux-Port', lat: 43.2951, lng: 5.3743 },
     duration: 201,
     keywords: ['gabian', 'accent'],
@@ -70,7 +70,7 @@ const BASE_EPISODES = [
     id: 'ep-004',
     slug: 'amelie-plage-soir',
     title: 'Amelie : L Ecume de Prado',
-    category: 'Plage',
+    category: 'Plages',
     location: { label: 'Plages du Prado', lat: 43.2694, lng: 5.3756 },
     duration: 232,
     keywords: ['pitchoun', 'gabian'],
@@ -82,7 +82,7 @@ const BASE_EPISODES = [
     id: 'ep-005',
     slug: 'nadir-noailles-marche',
     title: 'Nadir : Le Marche qui Deborde',
-    category: 'Marché',
+    category: 'Marchés',
     location: { label: 'Noailles', lat: 43.2968, lng: 5.3796 },
     duration: 239,
     keywords: ['emboucaner', 'degun'],
@@ -106,7 +106,7 @@ const BASE_EPISODES = [
     id: 'ep-007',
     slug: 'paolo-port-ferrys',
     title: 'Paolo : Ferrys et Brouillard',
-    category: 'Café',
+    category: 'Cafés',
     location: { label: 'Quai du Port', lat: 43.2969, lng: 5.3718 },
     duration: 255,
     keywords: ['gabian', 'degun'],
@@ -118,7 +118,7 @@ const BASE_EPISODES = [
     id: 'ep-008',
     slug: 'ines-plage-crepuscule',
     title: 'Ines : Crepuscule a Corbieres',
-    category: 'École',
+    category: 'Écoles',
     location: { label: 'Corbieres', lat: 43.3282, lng: 5.2921 },
     duration: 244,
     keywords: ['pitchoun', 'accent'],
