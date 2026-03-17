@@ -1604,12 +1604,12 @@ function App() {
 
                         <div className="hidden items-end md:flex">
                           <div className="rounded-2xl border border-anthracite/80 bg-gradient-to-b from-[#2a2a2a] to-[#161616] p-2 shadow-[0_10px_24px_rgba(0,0,0,0.45)]">
-                            <div className="rounded-xl border border-anthracite/70 bg-[#f6f3ee] p-1.5 shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)]">
+                            <div className="rounded-xl border border-anthracite/70 bg-[#cfc9bf] p-1.5 shadow-[inset_0_0_0_1px_rgba(0,0,0,0.12)]">
                               <QRCodeSVG
                                 value={qrValue}
                                 size={84}
-                                bgColor="#f8f5ef"
-                                fgColor="#121212"
+                                bgColor="#cbc5ba"
+                                fgColor="#101010"
                                 level="M"
                                 marginSize={4}
                               />
