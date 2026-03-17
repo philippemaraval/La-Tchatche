@@ -599,17 +599,31 @@ function App() {
   }, [filteredEpisodes, userPosition])
 
   const latestEpisodes = useMemo(() => filteredEpisodes.slice(-5).reverse(), [filteredEpisodes])
+  const nearestEpisodeIds = useMemo(() => new Set(nearestEpisodes.map((episode) => episode.id)), [nearestEpisodes])
+  const latestEpisodeIds = useMemo(() => new Set(latestEpisodes.map((episode) => episode.id)), [latestEpisodes])
+  const nearestDistanceById = useMemo(
+    () => new Map(nearestEpisodes.map((episode) => [episode.id, episode.distance])),
+    [nearestEpisodes],
+  )
   const isNearestModeActive = mapMode === 'nearest' && Boolean(userPosition)
 
-  const mapEpisodes = useMemo(() => {
-    if (isNearestModeActive) {
-      return nearestEpisodes
+  const focusedEpisodeIds = useMemo(() => {
+    if (mapMode === 'all') {
+      return new Set(filteredEpisodes.map((episode) => episode.id))
     }
+
     if (mapMode === 'latest') {
-      return latestEpisodes
+      return latestEpisodeIds
     }
-    return filteredEpisodes
-  }, [filteredEpisodes, isNearestModeActive, latestEpisodes, mapMode, nearestEpisodes])
+
+    if (mapMode === 'nearest') {
+      return isNearestModeActive ? nearestEpisodeIds : new Set()
+    }
+
+    return new Set()
+  }, [filteredEpisodes, isNearestModeActive, latestEpisodeIds, mapMode, nearestEpisodeIds])
+
+  const mapEpisodes = filteredEpisodes
 
   const mapPoints = useMemo(
     () =>
@@ -620,17 +634,16 @@ function App() {
         locationLabel: episode.location.label,
         lat: episode.location.lat,
         lng: episode.location.lng,
+        active: focusedEpisodeIds.has(episode.id),
         episode,
       })),
-    [mapEpisodes],
+    [focusedEpisodeIds, mapEpisodes],
   )
 
   const selectedMapEpisode = useMemo(
     () => mapEpisodes.find((episode) => episode.id === selectedMapEpisodeId) || null,
     [mapEpisodes, selectedMapEpisodeId],
   )
-
-  const isAllMapMode = mapMode === 'all'
 
   const playEpisode = async (episode) => {
     setAudioError('')
@@ -993,11 +1006,11 @@ function App() {
                     <CircleMarker
                       key={point.id}
                       center={[point.lat, point.lng]}
-                      radius={isAllMapMode ? 6 : 8}
+                      radius={point.active ? 8 : 6}
                       pathOptions={{
-                        color: isAllMapMode ? '#d7d7d7' : '#b22222',
-                        fillColor: isAllMapMode ? '#7b7b7b' : '#b22222',
-                        fillOpacity: isAllMapMode ? 0.76 : 0.9,
+                        color: point.active ? '#b22222' : '#b8b8b8',
+                        fillColor: point.active ? '#b22222' : '#737373',
+                        fillOpacity: point.active ? 0.9 : 0.62,
                         weight: 2,
                       }}
                       eventHandlers={{
@@ -1076,42 +1089,62 @@ function App() {
                 {mapMode === 'nearest' && !userPosition && geoStatus !== 'pending' && (
                   <p className="text-sm text-mist/70">
                     La vue 5 tchatches les plus proches est optionnelle. Sans position valide, toutes les tchatches
-                    restent affichées.
+                    restent affichées en gris.
                   </p>
                 )}
                 {mapEpisodes.length === 0 && (
                   <p className="text-sm text-mist/70">Aucun episode ne correspond a ce filtre.</p>
                 )}
 
-                {mapEpisodes.map((episode) => (
-                  <div
-                    key={`map-${episode.id}`}
-                    className="flex items-center justify-between rounded-xl border border-anthracite/70 bg-black/20 px-4 py-3"
-                  >
-                    <div>
-                      <p className="font-serif text-xl text-opera">{episode.title}</p>
-                      <p className="text-xs uppercase tracking-[0.15em] text-mist/55">
-                        {episode.category} | {episode.location.label}
-                      </p>
+                {mapEpisodes.map((episode) => {
+                  const isFocused = focusedEpisodeIds.has(episode.id)
+                  const distance = nearestDistanceById.get(episode.id)
+
+                  return (
+                    <div
+                      key={`map-${episode.id}`}
+                      className={`flex items-center justify-between rounded-xl px-4 py-3 ${
+                        mapMode !== 'all' && !isFocused
+                          ? 'border border-mist/25 bg-black/10 text-mist/60'
+                          : 'border border-anthracite/70 bg-black/20'
+                      }`}
+                    >
+                      <div>
+                        <p className={`font-serif text-xl ${mapMode !== 'all' && !isFocused ? 'text-mist/70' : 'text-opera'}`}>
+                          {episode.title}
+                        </p>
+                        <p
+                          className={`text-xs uppercase tracking-[0.15em] ${
+                            mapMode !== 'all' && !isFocused ? 'text-mist/45' : 'text-mist/55'
+                          }`}
+                        >
+                          {episode.category} | {episode.location.label}
+                        </p>
+                      </div>
+                      {mapMode === 'nearest' && isFocused && userPosition && typeof distance === 'number' ? (
+                        <span className="inline-flex items-center gap-2 rounded-full border border-opera/40 px-3 py-1 text-xs text-operaSoft">
+                          <Compass className="h-3.5 w-3.5" />
+                          {distance.toFixed(2)} km
+                        </span>
+                      ) : mapMode === 'latest' && isFocused ? (
+                        <span className="inline-flex items-center gap-2 rounded-full border border-opera/35 px-3 py-1 text-xs text-operaSoft/90">
+                          <MapPinned className="h-3.5 w-3.5" />
+                          Récent
+                        </span>
+                      ) : mapMode === 'all' ? (
+                        <span className="inline-flex items-center gap-2 rounded-full border border-opera/35 px-3 py-1 text-xs text-operaSoft/90">
+                          <MapPinned className="h-3.5 w-3.5" />
+                          Disponible
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-2 rounded-full border border-mist/30 px-3 py-1 text-xs text-mist/75">
+                          <MapPinned className="h-3.5 w-3.5" />
+                          Hors sélection
+                        </span>
+                      )}
                     </div>
-                    {mapMode === 'nearest' && userPosition && typeof episode.distance === 'number' ? (
-                      <span className="inline-flex items-center gap-2 rounded-full border border-opera/40 px-3 py-1 text-xs text-operaSoft">
-                        <Compass className="h-3.5 w-3.5" />
-                        {episode.distance.toFixed(2)} km
-                      </span>
-                    ) : mapMode === 'latest' ? (
-                      <span className="inline-flex items-center gap-2 rounded-full border border-opera/35 px-3 py-1 text-xs text-operaSoft/90">
-                        <MapPinned className="h-3.5 w-3.5" />
-                        Récent
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-2 rounded-full border border-mist/30 px-3 py-1 text-xs text-mist/75">
-                        <MapPinned className="h-3.5 w-3.5" />
-                        Disponible
-                      </span>
-                    )}
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             </MotionSection>
           ) : (
