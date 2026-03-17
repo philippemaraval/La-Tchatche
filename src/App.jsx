@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Howl } from 'howler'
+import { latLngBounds } from 'leaflet'
+import 'leaflet/dist/leaflet.css'
 import { QRCodeSVG } from 'qrcode.react'
+import { CircleMarker, MapContainer, Popup, TileLayer, useMap } from 'react-leaflet'
 import {
   Compass,
   Download,
@@ -134,6 +137,33 @@ const MotionSection = motion.section
 const MotionArticle = motion.article
 const MotionDiv = motion.div
 const MotionSpan = motion.span
+const MARSEILLE_CENTER = [43.2965, 5.3698]
+
+function FitMapBounds({ points, userPosition }) {
+  const map = useMap()
+
+  useEffect(() => {
+    const coordinates = points.map((point) => [point.lat, point.lng])
+
+    if (userPosition) {
+      coordinates.push([userPosition.lat, userPosition.lng])
+    }
+
+    if (coordinates.length === 0) {
+      map.setView(MARSEILLE_CENTER, 12, { animate: false })
+      return
+    }
+
+    if (coordinates.length === 1) {
+      map.setView(coordinates[0], 14, { animate: false })
+      return
+    }
+
+    map.fitBounds(latLngBounds(coordinates).pad(0.28), { animate: false })
+  }, [map, points, userPosition])
+
+  return null
+}
 
 function formatTime(value) {
   const total = Math.max(0, Math.floor(value || 0))
@@ -293,6 +323,7 @@ function App() {
   const [geoStatus, setGeoStatus] = useState('idle')
   const [geoError, setGeoError] = useState('')
   const [userPosition, setUserPosition] = useState(null)
+  const [selectedMapEpisodeId, setSelectedMapEpisodeId] = useState(null)
 
   const [activeEpisodeId, setActiveEpisodeId] = useState(null)
   const [isPlaying, setIsPlaying] = useState(false)
@@ -566,48 +597,27 @@ function App() {
       .slice(0, 5)
   }, [filteredEpisodes, userPosition])
 
-  const mapLayout = useMemo(() => {
-    if (!filteredEpisodes.length) {
-      return { points: [], userPoint: null }
-    }
+  const nearestEpisodeIds = useMemo(() => new Set(nearestEpisodes.map((episode) => episode.id)), [nearestEpisodes])
 
-    const points = filteredEpisodes.map((episode) => ({
-      id: episode.id,
-      label: episode.title,
-      lat: episode.location.lat,
-      lng: episode.location.lng,
-    }))
-
-    const allLats = points.map((point) => point.lat)
-    const allLngs = points.map((point) => point.lng)
-
-    if (userPosition) {
-      allLats.push(userPosition.lat)
-      allLngs.push(userPosition.lng)
-    }
-
-    const minLat = Math.min(...allLats)
-    const maxLat = Math.max(...allLats)
-    const minLng = Math.min(...allLngs)
-    const maxLng = Math.max(...allLngs)
-
-    const latRange = Math.max(0.01, maxLat - minLat)
-    const lngRange = Math.max(0.01, maxLng - minLng)
-
-    const projectPoint = (lat, lng) => ({
-      x: ((lng - minLng) / lngRange) * 100,
-      y: ((maxLat - lat) / latRange) * 100,
-    })
-
-    return {
-      points: points.map((point) => ({
-        ...point,
-        ...projectPoint(point.lat, point.lng),
-        active: nearestEpisodes.some((episode) => episode.id === point.id),
+  const mapPoints = useMemo(
+    () =>
+      filteredEpisodes.map((episode) => ({
+        id: episode.id,
+        title: episode.title,
+        category: episode.category,
+        locationLabel: episode.location.label,
+        lat: episode.location.lat,
+        lng: episode.location.lng,
+        active: nearestEpisodeIds.has(episode.id),
+        episode,
       })),
-      userPoint: userPosition ? projectPoint(userPosition.lat, userPosition.lng) : null,
-    }
-  }, [filteredEpisodes, nearestEpisodes, userPosition])
+    [filteredEpisodes, nearestEpisodeIds],
+  )
+
+  const selectedMapEpisode = useMemo(
+    () => filteredEpisodes.find((episode) => episode.id === selectedMapEpisodeId) || null,
+    [filteredEpisodes, selectedMapEpisodeId],
+  )
 
   const playEpisode = async (episode) => {
     setAudioError('')
@@ -909,31 +919,90 @@ function App() {
                 </button>
               </div>
 
-              <div className="mt-5 map-grid relative h-72 overflow-hidden rounded-2xl border border-anthracite/80 p-3">
-                {mapLayout.points.map((point) => (
-                  <span
-                    key={point.id}
-                    className={`absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border ${
-                      point.active
-                        ? 'border-opera bg-opera shadow-[0_0_0_6px_rgba(178,34,34,0.16)]'
-                        : 'border-mist/45 bg-mist/35'
-                    }`}
-                    style={{ left: `${point.x}%`, top: `${point.y}%` }}
-                    title={point.label}
+              <div className="map-grid mt-5 overflow-hidden rounded-2xl border border-anthracite/80 p-1">
+                <MapContainer center={MARSEILLE_CENTER} zoom={12} scrollWheelZoom className="h-72 w-full rounded-xl">
+                  <TileLayer
+                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                   />
-                ))}
+                  <FitMapBounds points={mapPoints} userPosition={userPosition} />
 
-                {mapLayout.userPoint && (
-                  <span
-                    className="absolute h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border border-mist bg-black shadow-[0_0_0_8px_rgba(255,255,255,0.15)]"
-                    style={{
-                      left: `${mapLayout.userPoint.x}%`,
-                      top: `${mapLayout.userPoint.y}%`,
-                    }}
-                    title="Vous"
-                  />
-                )}
+                  {mapPoints.map((point) => (
+                    <CircleMarker
+                      key={point.id}
+                      center={[point.lat, point.lng]}
+                      radius={point.active ? 8 : 6}
+                      pathOptions={{
+                        color: point.active ? '#b22222' : '#d7d7d7',
+                        fillColor: point.active ? '#b22222' : '#7b7b7b',
+                        fillOpacity: point.active ? 0.9 : 0.7,
+                        weight: 2,
+                      }}
+                      eventHandlers={{
+                        click: () => {
+                          setSelectedMapEpisodeId(point.id)
+                        },
+                      }}
+                    >
+                      <Popup>
+                        <div className="space-y-2 text-xs">
+                          <p className="text-sm font-semibold text-black">{point.title}</p>
+                          <p className="uppercase tracking-[0.1em] text-black/70">
+                            {point.category} | {point.locationLabel}
+                          </p>
+                          <button
+                            type="button"
+                            className="rounded-full border border-black/30 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-black transition hover:bg-black/10"
+                            onClick={() => playEpisode(point.episode)}
+                          >
+                            Écouter
+                          </button>
+                        </div>
+                      </Popup>
+                    </CircleMarker>
+                  ))}
+
+                  {userPosition && (
+                    <CircleMarker
+                      center={[userPosition.lat, userPosition.lng]}
+                      radius={7}
+                      pathOptions={{
+                        color: '#ffffff',
+                        fillColor: '#101010',
+                        fillOpacity: 1,
+                        weight: 2,
+                      }}
+                    >
+                      <Popup>
+                        <p className="text-xs font-semibold text-black">Vous êtes ici</p>
+                      </Popup>
+                    </CircleMarker>
+                  )}
+                </MapContainer>
               </div>
+
+              {selectedMapEpisode && (
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-opera/35 bg-opera/10 px-4 py-3">
+                  <div>
+                    <p className="font-serif text-xl text-opera">{selectedMapEpisode.title}</p>
+                    <p className="text-xs uppercase tracking-[0.12em] text-mist/60">
+                      {selectedMapEpisode.category} | {selectedMapEpisode.location.label}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-2 rounded-full border border-opera/55 px-4 py-2 text-xs font-semibold uppercase tracking-[0.1em] text-operaSoft transition hover:bg-opera/15"
+                    onClick={() => playEpisode(selectedMapEpisode)}
+                  >
+                    {activeEpisodeId === selectedMapEpisode.id && isPlaying ? (
+                      <Pause className="h-3.5 w-3.5" />
+                    ) : (
+                      <Play className="h-3.5 w-3.5" />
+                    )}
+                    {activeEpisodeId === selectedMapEpisode.id && isPlaying ? 'Pause' : 'Écouter'}
+                  </button>
+                </div>
+              )}
 
               <div className="mt-5 space-y-3">
                 {geoStatus === 'pending' && (
