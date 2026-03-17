@@ -1603,17 +1603,19 @@ function App() {
                         </div>
 
                         <div className="hidden items-end gap-2 md:flex md:flex-col">
-                          <div className="rounded-xl bg-white p-2 shadow-[0_8px_20px_rgba(0,0,0,0.35)]">
-                            <QRCodeSVG
-                              value={qrValue}
-                              size={88}
-                              bgColor="#ffffff"
-                              fgColor="#101010"
-                              level="M"
-                              marginSize={4}
-                            />
+                          <div className="rounded-2xl border border-opera/35 bg-black/45 p-2 shadow-[0_10px_24px_rgba(0,0,0,0.45)]">
+                            <div className="rounded-xl border border-opera/25 bg-[#f6f3ee] p-1.5">
+                              <QRCodeSVG
+                                value={qrValue}
+                                size={84}
+                                bgColor="#f8f5ef"
+                                fgColor="#121212"
+                                level="M"
+                                marginSize={4}
+                              />
+                            </div>
                           </div>
-                          <span className="text-[0.62rem] uppercase tracking-[0.18em] text-mist/45">QR</span>
+                          <span className="text-[0.62rem] uppercase tracking-[0.18em] text-operaSoft/65">SCAN</span>
                         </div>
                       </div>
 
