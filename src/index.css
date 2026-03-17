@@ -151,6 +151,44 @@ body {
   background-size: 34px 34px, 34px 34px, 100% 100%, 100% 100%;
 }
 
+.map-surface .leaflet-container {
+  background: #0a0a0a;
+}
+
+.map-surface .leaflet-tile-pane {
+  filter: brightness(0.74) contrast(1.08) saturate(0.75);
+}
+
+.map-surface::after {
+  content: '';
+  position: absolute;
+  inset: 0.25rem;
+  border-radius: 0.75rem;
+  pointer-events: none;
+  background: radial-gradient(circle at 18% 20%, rgba(178, 34, 34, 0.2), transparent 34%),
+    linear-gradient(180deg, rgba(10, 10, 10, 0.18), rgba(10, 10, 10, 0.58));
+}
+
+.map-surface .leaflet-control-zoom a {
+  background: rgba(12, 12, 12, 0.86);
+  color: rgba(235, 235, 235, 0.92);
+  border-bottom: 1px solid rgba(178, 34, 34, 0.35);
+}
+
+.map-surface .leaflet-control-zoom a:hover {
+  background: rgba(178, 34, 34, 0.4);
+  color: #fff;
+}
+
+.map-surface .leaflet-control-attribution {
+  background: rgba(0, 0, 0, 0.55);
+  color: rgba(220, 220, 220, 0.76);
+}
+
+.map-surface .leaflet-control-attribution a {
+  color: rgba(240, 240, 240, 0.9);
+}
+
 .fade-divider {
   height: 1px;
   background: linear-gradient(90deg, rgba(45, 45, 45, 0), rgba(45, 45, 45, 1), rgba(45, 45, 45, 0));

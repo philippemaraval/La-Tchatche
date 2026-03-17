@@ -919,11 +919,11 @@ function App() {
                 </button>
               </div>
 
-              <div className="map-grid mt-5 overflow-hidden rounded-2xl border border-anthracite/80 p-1">
+              <div className="map-grid map-surface relative mt-5 overflow-hidden rounded-2xl border border-anthracite/80 p-1">
                 <MapContainer center={MARSEILLE_CENTER} zoom={12} scrollWheelZoom className="h-72 w-full rounded-xl">
                   <TileLayer
-                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+                    url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
                   />
                   <FitMapBounds points={mapPoints} userPosition={userPosition} />
 
