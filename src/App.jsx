@@ -133,6 +133,12 @@ const BASE_EPISODES = [
 
 const MAX_BATCHES = 14
 const FAVORITES_KEY = 'la-tchatche-favoris'
+const PLAYBACK_POSITIONS_KEY = 'la-tchatche-playback-positions'
+const PLAYBACK_RATE_KEY = 'la-tchatche-playback-rate'
+const OFFLINE_EPISODES_KEY = 'la-tchatche-offline-episodes'
+const OFFLINE_AUDIO_CACHE = 'la-tchatche-audio-v1'
+const SUGGESTIONS_KEY = 'la-tchatche-suggestions'
+const PLAYBACK_RATE_OPTIONS = [0.8, 1, 1.2, 1.5]
 const MotionSection = motion.section
 const MotionArticle = motion.article
 const MotionDiv = motion.div
@@ -142,6 +148,18 @@ const MARSEILLE_BOUNDS = [
   [43.16, 5.03],
   [43.5, 5.62],
 ]
+
+function parseStoredJson(key, fallback) {
+  const raw = localStorage.getItem(key)
+  if (!raw) {
+    return fallback
+  }
+  try {
+    return JSON.parse(raw)
+  } catch {
+    return fallback
+  }
+}
 
 function FitMapBounds({ points, userPosition }) {
   const map = useMap()
@@ -300,6 +318,10 @@ function App() {
   const [selectedNav, setSelectedNav] = useState(null)
   const [mapCategory, setMapCategory] = useState(null)
   const [query, setQuery] = useState('')
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
+  const [durationFilter, setDurationFilter] = useState('all')
+  const [locationFilter, setLocationFilter] = useState('all')
+  const [keywordFilter, setKeywordFilter] = useState('all')
   const [loadingMore, setLoadingMore] = useState(false)
   const [hasMore, setHasMore] = useState(true)
 
@@ -338,6 +360,28 @@ function App() {
   const [trackDuration, setTrackDuration] = useState(0)
   const [transitioning, setTransitioning] = useState(false)
   const [audioError, setAudioError] = useState('')
+  const [playbackRate, setPlaybackRate] = useState(() => {
+    const stored = Number(localStorage.getItem(PLAYBACK_RATE_KEY))
+    return PLAYBACK_RATE_OPTIONS.includes(stored) ? stored : 1
+  })
+  const [playbackPositions, setPlaybackPositions] = useState(() => {
+    const parsed = parseStoredJson(PLAYBACK_POSITIONS_KEY, {})
+    return parsed && typeof parsed === 'object' ? parsed : {}
+  })
+  const [offlineEpisodeIds, setOfflineEpisodeIds] = useState(() => {
+    const parsed = parseStoredJson(OFFLINE_EPISODES_KEY, [])
+    return Array.isArray(parsed) ? parsed : []
+  })
+  const [offlineBusyId, setOfflineBusyId] = useState(null)
+  const [suggestModalOpen, setSuggestModalOpen] = useState(false)
+  const [suggestionSent, setSuggestionSent] = useState('')
+  const [suggestForm, setSuggestForm] = useState({
+    name: '',
+    email: '',
+    category: NAV_ITEMS[0],
+    location: '',
+    pitch: '',
+  })
 
   const loadMoreRef = useRef(null)
   const pageRef = useRef(1)
@@ -347,10 +391,26 @@ function App() {
   const howlRef = useRef(null)
   const audioContextRef = useRef(null)
   const bridgeStopRef = useRef(null)
+  const lastPositionWriteRef = useRef({ episodeId: null, second: -1 })
 
   useEffect(() => {
     localStorage.setItem(FAVORITES_KEY, JSON.stringify(favorites))
   }, [favorites])
+
+  useEffect(() => {
+    localStorage.setItem(PLAYBACK_RATE_KEY, String(playbackRate))
+    if (howlRef.current) {
+      howlRef.current.rate(playbackRate)
+    }
+  }, [playbackRate])
+
+  useEffect(() => {
+    localStorage.setItem(PLAYBACK_POSITIONS_KEY, JSON.stringify(playbackPositions))
+  }, [playbackPositions])
+
+  useEffect(() => {
+    localStorage.setItem(OFFLINE_EPISODES_KEY, JSON.stringify(offlineEpisodeIds))
+  }, [offlineEpisodeIds])
 
   useEffect(() => {
     return () => {
@@ -380,7 +440,45 @@ function App() {
     }
   }
 
-  const startProgressTicker = (howl, fallbackDuration) => {
+  const persistPlaybackPosition = useCallback((episodeId, seconds, duration = 0) => {
+    if (!episodeId) {
+      return
+    }
+
+    const safeSecond = Math.max(0, Math.floor(seconds || 0))
+    const safeDuration = Math.max(0, Number(duration) || 0)
+    const shouldClear = safeSecond <= 0 || (safeDuration > 0 && safeSecond >= Math.max(0, Math.floor(safeDuration) - 5))
+
+    setPlaybackPositions((current) => {
+      const next = { ...current }
+      if (shouldClear) {
+        delete next[episodeId]
+      } else {
+        next[episodeId] = safeSecond
+      }
+      return next
+    })
+  }, [])
+
+  const seekRelative = (deltaSeconds) => {
+    const currentHowl = howlRef.current
+    if (!currentHowl || !activeEpisodeId) {
+      return
+    }
+
+    const currentSeek = typeof currentHowl.seek() === 'number' ? currentHowl.seek() : 0
+    const totalDuration = currentHowl.duration() || trackDuration || 0
+    const nextSeek = Math.max(0, Math.min(totalDuration || currentSeek + deltaSeconds, currentSeek + deltaSeconds))
+    currentHowl.seek(nextSeek)
+    setCurrentTime(nextSeek)
+    if (totalDuration > 0) {
+      setTrackDuration(totalDuration)
+      setProgress(Math.min(100, (nextSeek / totalDuration) * 100))
+    }
+    persistPlaybackPosition(activeEpisodeId, nextSeek, totalDuration)
+  }
+
+  const startProgressTicker = (howl, fallbackDuration, episodeId) => {
     stopProgressTicker()
     progressTimerRef.current = setInterval(() => {
       if (!howl.playing()) {
@@ -393,6 +491,11 @@ function App() {
       setCurrentTime(seek)
       setTrackDuration(duration)
       setProgress(duration > 0 ? Math.min(100, (seek / duration) * 100) : 0)
+      const currentSecond = Math.floor(seek)
+      if (lastPositionWriteRef.current.episodeId !== episodeId || lastPositionWriteRef.current.second !== currentSecond) {
+        lastPositionWriteRef.current = { episodeId, second: currentSecond }
+        persistPlaybackPosition(episodeId, seek, duration || fallbackDuration)
+      }
     }, 180)
   }
 
@@ -567,10 +670,37 @@ function App() {
     }
   }, [hasMore, loadMoreEpisodes, viewMode])
 
+  const locationOptions = useMemo(() => {
+    return Array.from(new Set(episodes.map((episode) => episode.location.label))).sort((a, b) =>
+      a.localeCompare(b, 'fr'),
+    )
+  }, [episodes])
+
+  const keywordOptions = useMemo(() => {
+    return Array.from(new Set(episodes.flatMap((episode) => episode.keywords))).sort((a, b) =>
+      a.localeCompare(b, 'fr'),
+    )
+  }, [episodes])
+
   const searchedEpisodes = useMemo(() => {
     const search = query.trim().toLowerCase()
 
     return episodes.filter((episode) => {
+      if (durationFilter === 'short' && episode.duration > 220) {
+        return false
+      }
+      if (durationFilter === 'medium' && (episode.duration <= 220 || episode.duration > 245)) {
+        return false
+      }
+      if (durationFilter === 'long' && episode.duration <= 245) {
+        return false
+      }
+      if (locationFilter !== 'all' && episode.location.label !== locationFilter) {
+        return false
+      }
+      if (keywordFilter !== 'all' && !episode.keywords.includes(keywordFilter)) {
+        return false
+      }
       if (!search) {
         return true
       }
@@ -578,7 +708,7 @@ function App() {
       const haystack = `${episode.title} ${episode.summary} ${episode.category} ${episode.location.label}`.toLowerCase()
       return haystack.includes(search)
     })
-  }, [episodes, query])
+  }, [durationFilter, episodes, keywordFilter, locationFilter, query])
 
   const filteredEpisodes = useMemo(() => {
     if (!selectedNav) {
@@ -662,19 +792,29 @@ function App() {
     [mapEpisodes, selectedMapEpisodeId],
   )
 
+  const activeEpisode = useMemo(
+    () => episodes.find((episode) => episode.id === activeEpisodeId) || null,
+    [activeEpisodeId, episodes],
+  )
+  const offlineEpisodeSet = useMemo(() => new Set(offlineEpisodeIds), [offlineEpisodeIds])
+
   const playEpisode = async (episode) => {
     setAudioError('')
     const current = howlRef.current
+    const resumeAt = Math.max(0, Math.min(playbackPositions[episode.id] || 0, Math.max(0, episode.duration - 1)))
 
     if (activeEpisodeId === episode.id && current) {
       if (current.playing()) {
+        const pausedAt = typeof current.seek() === 'number' ? current.seek() : 0
+        persistPlaybackPosition(episode.id, pausedAt, current.duration() || episode.duration)
         current.pause()
         setIsPlaying(false)
         stopProgressTicker()
       } else {
+        current.rate(playbackRate)
         current.play()
         setIsPlaying(true)
-        startProgressTicker(current, episode.duration)
+        startProgressTicker(current, episode.duration, episode.id)
       }
       return
     }
@@ -687,6 +827,10 @@ function App() {
     }
 
     if (current) {
+      if (activeEpisodeId) {
+        const previousAt = typeof current.seek() === 'number' ? current.seek() : 0
+        persistPlaybackPosition(activeEpisodeId, previousAt, current.duration() || trackDuration)
+      }
       setTransitioning(true)
       current.fade(current.volume(), 0.0, 220)
       setTimeout(() => {
@@ -709,24 +853,39 @@ function App() {
     setProgress(0)
     setTrackDuration(episode.duration)
 
+    let resumeApplied = false
     const next = new Howl({
       src: [episode.audioUrl],
       html5: true,
       volume: 0.95,
+      rate: playbackRate,
       onload: () => {
         setTrackDuration(next.duration() || episode.duration)
       },
       onplay: () => {
+        if (!resumeApplied && resumeAt > 1) {
+          resumeApplied = true
+          next.seek(resumeAt)
+          const total = next.duration() || episode.duration
+          setCurrentTime(resumeAt)
+          setTrackDuration(total)
+          setProgress(total > 0 ? Math.min(100, (resumeAt / total) * 100) : 0)
+        }
         setIsPlaying(true)
-        startProgressTicker(next, episode.duration)
+        startProgressTicker(next, episode.duration, episode.id)
       },
       onpause: () => {
+        const pausedAt = typeof next.seek() === 'number' ? next.seek() : 0
+        persistPlaybackPosition(episode.id, pausedAt, next.duration() || episode.duration)
         setIsPlaying(false)
       },
       onstop: () => {
+        const stoppedAt = typeof next.seek() === 'number' ? next.seek() : 0
+        persistPlaybackPosition(episode.id, stoppedAt, next.duration() || episode.duration)
         setIsPlaying(false)
       },
       onend: () => {
+        persistPlaybackPosition(episode.id, 0, next.duration() || episode.duration)
         setIsPlaying(false)
         stopProgressTicker()
         setProgress(0)
@@ -741,6 +900,7 @@ function App() {
     })
 
     howlRef.current = next
+    next.rate(playbackRate)
     next.play()
   }
 
@@ -774,6 +934,74 @@ function App() {
     setFavorites((current) =>
       current.includes(episodeId) ? current.filter((id) => id !== episodeId) : [...current, episodeId],
     )
+  }
+
+  const toggleOfflineEpisode = async (episode) => {
+    if (!('caches' in window)) {
+      setAudioError('Mode hors ligne non supporte sur cet appareil.')
+      return
+    }
+
+    setOfflineBusyId(episode.id)
+    setAudioError('')
+
+    try {
+      const cache = await caches.open(OFFLINE_AUDIO_CACHE)
+      const request = new Request(episode.audioUrl, { mode: 'no-cors' })
+
+      if (offlineEpisodeSet.has(episode.id)) {
+        await cache.delete(request, { ignoreSearch: true })
+        setOfflineEpisodeIds((current) => current.filter((id) => id !== episode.id))
+        return
+      }
+
+      const response = await fetch(request)
+      if (!response || (!response.ok && response.type !== 'opaque')) {
+        throw new Error('offline-download-failed')
+      }
+
+      await cache.put(request, response.clone())
+      setOfflineEpisodeIds((current) => (current.includes(episode.id) ? current : [...current, episode.id]))
+    } catch {
+      setAudioError('Impossible de preparer cet episode hors ligne pour le moment.')
+    } finally {
+      setOfflineBusyId(null)
+    }
+  }
+
+  const submitSuggestion = (event) => {
+    event.preventDefault()
+
+    const payload = {
+      name: suggestForm.name.trim(),
+      email: suggestForm.email.trim(),
+      category: suggestForm.category.trim(),
+      location: suggestForm.location.trim(),
+      pitch: suggestForm.pitch.trim(),
+    }
+
+    if (!payload.name || !payload.category || !payload.location || !payload.pitch) {
+      setSuggestionSent('Merci de remplir les champs obligatoires.')
+      return
+    }
+
+    const submissions = parseStoredJson(SUGGESTIONS_KEY, [])
+    const nextItem = {
+      id: `sugg-${Date.now()}`,
+      createdAt: new Date().toISOString(),
+      ...payload,
+    }
+    const nextBatch = Array.isArray(submissions) ? [nextItem, ...submissions] : [nextItem]
+    localStorage.setItem(SUGGESTIONS_KEY, JSON.stringify(nextBatch))
+
+    setSuggestionSent(`Merci ${payload.name}, proposition enregistree (${nextItem.id}).`)
+    setSuggestForm({
+      name: '',
+      email: '',
+      category: NAV_ITEMS[0],
+      location: '',
+      pitch: '',
+    })
   }
 
   const openQuoteModal = (episode) => {
@@ -873,7 +1101,7 @@ function App() {
   }
 
   return (
-    <div className="bitume-noise min-h-screen pb-20 text-mist">
+    <div className="bitume-noise min-h-screen pb-36 text-mist">
       <header className="frosted-header sticky top-0 z-40 border-b border-anthracite/90 bg-bitume/88">
         <div className="mx-auto grid w-full max-w-[1360px] gap-4 px-4 py-3 md:grid-cols-[1fr_auto_1fr] md:items-center md:px-6">
           <div className="flex min-w-0 items-center gap-3">
@@ -950,17 +1178,94 @@ function App() {
             ))}
           </div>
 
-          <label className="flex items-center gap-2 rounded-full border border-anthracite/80 bg-black/25 px-3 py-2 shadow-glass md:justify-self-end">
-            <Search className="h-4 w-4 text-mist/65" />
-            <input
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              className="w-full bg-transparent text-sm text-mist placeholder:text-mist/45 focus:outline-none md:w-52"
-              placeholder="Rechercher"
-              type="search"
-            />
-          </label>
+          <div className="flex items-center gap-2 md:justify-self-end">
+            <label className="flex items-center gap-2 rounded-full border border-anthracite/80 bg-black/25 px-3 py-2 shadow-glass">
+              <Search className="h-4 w-4 text-mist/65" />
+              <input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                className="w-full bg-transparent text-sm text-mist placeholder:text-mist/45 focus:outline-none md:w-52"
+                placeholder="Rechercher"
+                type="search"
+              />
+            </label>
+            <button
+              type="button"
+              className={`rounded-full border px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.1em] transition ${
+                showAdvancedFilters
+                  ? 'border-opera/60 bg-opera/12 text-operaSoft'
+                  : 'border-anthracite/70 bg-black/20 text-mist/70 hover:border-opera/45 hover:text-operaSoft'
+              }`}
+              onClick={() => setShowAdvancedFilters((current) => !current)}
+            >
+              Filtres
+            </button>
+          </div>
         </div>
+
+        {showAdvancedFilters && (
+          <div className="mx-auto w-full max-w-[1360px] px-4 pb-3 md:px-6">
+            <div className="grid gap-2 rounded-2xl border border-anthracite/80 bg-black/25 p-3 md:grid-cols-[1fr_1fr_1fr_auto] md:items-center">
+              <label className="flex items-center gap-2 rounded-full border border-anthracite/75 bg-black/25 px-3 py-2 text-xs text-mist/70">
+                Duree
+                <select
+                  value={durationFilter}
+                  onChange={(event) => setDurationFilter(event.target.value)}
+                  className="w-full bg-transparent text-xs text-mist focus:outline-none"
+                >
+                  <option value="all">Toutes</option>
+                  <option value="short">Courtes (0-3m40)</option>
+                  <option value="medium">Moyennes (3m41-4m05)</option>
+                  <option value="long">Longues (&gt;4m05)</option>
+                </select>
+              </label>
+
+              <label className="flex items-center gap-2 rounded-full border border-anthracite/75 bg-black/25 px-3 py-2 text-xs text-mist/70">
+                Lieu
+                <select
+                  value={locationFilter}
+                  onChange={(event) => setLocationFilter(event.target.value)}
+                  className="w-full bg-transparent text-xs text-mist focus:outline-none"
+                >
+                  <option value="all">Tous</option>
+                  {locationOptions.map((option) => (
+                    <option key={`loc-${option}`} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="flex items-center gap-2 rounded-full border border-anthracite/75 bg-black/25 px-3 py-2 text-xs text-mist/70">
+                Mot-cle
+                <select
+                  value={keywordFilter}
+                  onChange={(event) => setKeywordFilter(event.target.value)}
+                  className="w-full bg-transparent text-xs text-mist focus:outline-none"
+                >
+                  <option value="all">Tous</option>
+                  {keywordOptions.map((option) => (
+                    <option key={`kw-${option}`} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <button
+                type="button"
+                className="rounded-full border border-anthracite/75 px-3 py-2 text-[11px] uppercase tracking-[0.1em] text-mist/70 transition hover:border-opera/50 hover:text-operaSoft"
+                onClick={() => {
+                  setDurationFilter('all')
+                  setLocationFilter('all')
+                  setKeywordFilter('all')
+                }}
+              >
+                Reset
+              </button>
+            </div>
+          </div>
+        )}
       </header>
 
       <main className="mx-auto mt-8 w-full max-w-[860px] px-4 md:px-6">
@@ -1268,6 +1573,9 @@ function App() {
                   const shownDuration = isActive ? trackDuration || episode.duration : episode.duration
                   const shownCurrent = isActive ? currentTime : 0
                   const shownProgress = isActive ? progress : 0
+                  const resumeAt = playbackPositions[episode.id] || 0
+                  const isOfflineReady = offlineEpisodeSet.has(episode.id)
+                  const isOfflineBusy = offlineBusyId === episode.id
                   const qrValue = `${window.location.origin}/#episode=${episode.slug}`
 
                   return (
@@ -1287,6 +1595,11 @@ function App() {
                           <h2 className="mt-2 font-serif text-[2.1rem] leading-[1.05] text-opera md:text-[2.6rem]">
                             {episode.title}
                           </h2>
+                          {!isActive && resumeAt > 1 && (
+                            <p className="mt-2 text-xs uppercase tracking-[0.12em] text-operaSoft/80">
+                              Reprise dispo a {formatTime(resumeAt)}
+                            </p>
+                          )}
                         </div>
 
                         <div className="hidden items-end gap-2 md:flex md:flex-col">
@@ -1337,6 +1650,24 @@ function App() {
                           {playingThis ? <Pause className="h-5 w-5" /> : <Play className="ml-0.5 h-5 w-5" />}
                         </button>
 
+                        <button
+                          type="button"
+                          className="rounded-full border border-anthracite/75 px-3 py-2 text-xs uppercase tracking-[0.1em] text-mist/75 transition hover:border-opera/55 hover:text-operaSoft disabled:cursor-not-allowed disabled:opacity-40"
+                          onClick={() => seekRelative(-10)}
+                          disabled={!isActive}
+                        >
+                          -10s
+                        </button>
+
+                        <button
+                          type="button"
+                          className="rounded-full border border-anthracite/75 px-3 py-2 text-xs uppercase tracking-[0.1em] text-mist/75 transition hover:border-opera/55 hover:text-operaSoft disabled:cursor-not-allowed disabled:opacity-40"
+                          onClick={() => seekRelative(10)}
+                          disabled={!isActive}
+                        >
+                          +10s
+                        </button>
+
                         <div className="flex-1">
                           <input
                             type="range"
@@ -1357,6 +1688,7 @@ function App() {
                               howlRef.current.seek(nextSeek)
                               setProgress(nextProgress)
                               setCurrentTime(nextSeek)
+                              persistPlaybackPosition(episode.id, nextSeek, total)
                             }}
                           />
                         </div>
@@ -1364,6 +1696,21 @@ function App() {
                         <p className="w-24 text-right text-sm text-mist/80">
                           {formatTime(shownCurrent)} / {formatTime(shownDuration)}
                         </p>
+
+                        <label className="rounded-full border border-anthracite/75 px-2 py-1 text-xs text-mist/75">
+                          <span className="mr-1">Vitesse</span>
+                          <select
+                            value={playbackRate}
+                            onChange={(event) => setPlaybackRate(Number(event.target.value))}
+                            className="bg-transparent text-xs text-mist focus:outline-none"
+                          >
+                            {PLAYBACK_RATE_OPTIONS.map((rate) => (
+                              <option key={`rate-${rate}`} value={rate}>
+                                {rate}x
+                              </option>
+                            ))}
+                          </select>
+                        </label>
 
                         <button
                           type="button"
@@ -1399,6 +1746,20 @@ function App() {
                             <Download className="h-4 w-4" />
                             Download MP3
                           </a>
+
+                          <button
+                            type="button"
+                            className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs uppercase tracking-[0.1em] transition ${
+                              isOfflineReady
+                                ? 'border-opera/60 bg-opera/10 text-operaSoft'
+                                : 'border-anthracite/80 text-mist/82 hover:border-opera/60 hover:text-operaSoft'
+                            }`}
+                            onClick={() => toggleOfflineEpisode(episode)}
+                            disabled={isOfflineBusy}
+                          >
+                            <Download className="h-4 w-4" />
+                            {isOfflineBusy ? '...' : isOfflineReady ? 'Hors ligne OK' : 'Mode hors ligne'}
+                          </button>
                         </div>
 
                         <a
@@ -1427,6 +1788,88 @@ function App() {
         </AnimatePresence>
       </main>
 
+      {activeEpisode && (
+        <div className="pointer-events-none fixed inset-x-0 bottom-3 z-50 px-3 md:px-6">
+          <div className="pointer-events-auto mx-auto w-full max-w-[860px] rounded-2xl border border-anthracite/80 bg-bitume/92 p-3 shadow-[0_12px_32px_rgba(0,0,0,0.55)] backdrop-blur">
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-opera/75 bg-opera/18 text-operaSoft transition hover:bg-opera/28"
+                onClick={() => playEpisode(activeEpisode)}
+                aria-label={isPlaying ? 'Pause' : 'Play'}
+              >
+                {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="ml-0.5 h-4 w-4" />}
+              </button>
+
+              <button
+                type="button"
+                className="rounded-full border border-anthracite/75 px-3 py-2 text-[11px] uppercase tracking-[0.1em] text-mist/75 transition hover:border-opera/55 hover:text-operaSoft"
+                onClick={() => seekRelative(-10)}
+              >
+                -10s
+              </button>
+
+              <button
+                type="button"
+                className="rounded-full border border-anthracite/75 px-3 py-2 text-[11px] uppercase tracking-[0.1em] text-mist/75 transition hover:border-opera/55 hover:text-operaSoft"
+                onClick={() => seekRelative(10)}
+              >
+                +10s
+              </button>
+
+              <div className="min-w-0 flex-1 px-1">
+                <p className="truncate text-sm text-opera">{activeEpisode.title}</p>
+                <p className="truncate text-[11px] uppercase tracking-[0.12em] text-mist/55">
+                  {activeEpisode.category} | {activeEpisode.location.label}
+                </p>
+              </div>
+
+              <label className="rounded-full border border-anthracite/75 px-2 py-1 text-[11px] text-mist/75">
+                <span className="mr-1">Vitesse</span>
+                <select
+                  value={playbackRate}
+                  onChange={(event) => setPlaybackRate(Number(event.target.value))}
+                  className="bg-transparent text-[11px] text-mist focus:outline-none"
+                >
+                  {PLAYBACK_RATE_OPTIONS.map((rate) => (
+                    <option key={`sticky-rate-${rate}`} value={rate}>
+                      {rate}x
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
+            <div className="mt-2 flex items-center gap-3">
+              <input
+                type="range"
+                min={0}
+                max={100}
+                step={0.1}
+                value={progress}
+                className="audio-slider flex-1"
+                style={{ '--progress': `${progress}%` }}
+                onChange={(event) => {
+                  if (!howlRef.current || !activeEpisode) {
+                    return
+                  }
+                  const nextProgress = Number(event.target.value)
+                  const total = howlRef.current.duration() || trackDuration || activeEpisode.duration
+                  const nextSeek = (nextProgress / 100) * total
+                  howlRef.current.seek(nextSeek)
+                  setProgress(nextProgress)
+                  setCurrentTime(nextSeek)
+                  persistPlaybackPosition(activeEpisode.id, nextSeek, total)
+                }}
+              />
+              <p className="w-24 text-right text-xs text-mist/75">
+                {formatTime(currentTime)} / {formatTime(trackDuration || activeEpisode.duration)}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       <footer className="mx-auto mt-8 flex w-full max-w-[860px] items-center justify-center gap-8 border-t border-anthracite/80 px-4 py-6 text-sm md:px-6">
         <a href="#" className="footer-link">
           Mentions Legales
@@ -1434,9 +1877,106 @@ function App() {
         <a href="#" className="footer-link">
           Contact
         </a>
+        <button
+          type="button"
+          className="footer-link"
+          onClick={() => {
+            setSuggestionSent('')
+            setSuggestModalOpen(true)
+          }}
+        >
+          Proposer une tchatche
+        </button>
       </footer>
 
       <AnimatePresence>
+        {suggestModalOpen && (
+          <MotionDiv
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setSuggestModalOpen(false)}
+          >
+            <MotionDiv
+              initial={{ y: 22, opacity: 0, scale: 0.98 }}
+              animate={{ y: 0, opacity: 1, scale: 1 }}
+              exit={{ y: 14, opacity: 0, scale: 0.98 }}
+              transition={{ duration: 0.24 }}
+              className="episode-shell w-full max-w-xl rounded-2xl p-5"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="mb-4 flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.15em] text-mist/55">Contribution</p>
+                  <h3 className="font-serif text-3xl text-opera">Proposer une tchatche</h3>
+                </div>
+                <button
+                  type="button"
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-anthracite/80 text-mist/80 transition hover:border-opera/50 hover:text-operaSoft"
+                  onClick={() => setSuggestModalOpen(false)}
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <form className="space-y-3" onSubmit={submitSuggestion}>
+                <input
+                  type="text"
+                  placeholder="Nom *"
+                  value={suggestForm.name}
+                  onChange={(event) => setSuggestForm((current) => ({ ...current, name: event.target.value }))}
+                  className="w-full rounded-xl border border-anthracite/80 bg-black/20 px-3 py-2 text-sm text-mist placeholder:text-mist/45 focus:border-opera/60 focus:outline-none"
+                />
+                <input
+                  type="email"
+                  placeholder="Email (optionnel)"
+                  value={suggestForm.email}
+                  onChange={(event) => setSuggestForm((current) => ({ ...current, email: event.target.value }))}
+                  className="w-full rounded-xl border border-anthracite/80 bg-black/20 px-3 py-2 text-sm text-mist placeholder:text-mist/45 focus:border-opera/60 focus:outline-none"
+                />
+                <div className="grid gap-3 md:grid-cols-[1fr_1fr]">
+                  <select
+                    value={suggestForm.category}
+                    onChange={(event) => setSuggestForm((current) => ({ ...current, category: event.target.value }))}
+                    className="w-full rounded-xl border border-anthracite/80 bg-black/20 px-3 py-2 text-sm text-mist focus:border-opera/60 focus:outline-none"
+                  >
+                    {NAV_ITEMS.map((item) => (
+                      <option key={`suggest-cat-${item}`} value={item}>
+                        {item}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    type="text"
+                    placeholder="Lieu / quartier *"
+                    value={suggestForm.location}
+                    onChange={(event) => setSuggestForm((current) => ({ ...current, location: event.target.value }))}
+                    className="w-full rounded-xl border border-anthracite/80 bg-black/20 px-3 py-2 text-sm text-mist placeholder:text-mist/45 focus:border-opera/60 focus:outline-none"
+                  />
+                </div>
+                <textarea
+                  rows={4}
+                  placeholder="Pitch de la tchatche *"
+                  value={suggestForm.pitch}
+                  onChange={(event) => setSuggestForm((current) => ({ ...current, pitch: event.target.value }))}
+                  className="w-full rounded-xl border border-anthracite/80 bg-black/20 px-3 py-2 text-sm text-mist placeholder:text-mist/45 focus:border-opera/60 focus:outline-none"
+                />
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-xs text-mist/60">* champs obligatoires</p>
+                  <button
+                    type="submit"
+                    className="rounded-full border border-opera/60 px-4 py-2 text-xs font-semibold uppercase tracking-[0.1em] text-operaSoft transition hover:bg-opera/10"
+                  >
+                    Envoyer
+                  </button>
+                </div>
+                {suggestionSent && <p className="text-xs text-operaSoft">{suggestionSent}</p>}
+              </form>
+            </MotionDiv>
+          </MotionDiv>
+        )}
+
         {quoteModal.open && quoteModal.episode && (
           <MotionDiv
             className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4"
