@@ -323,6 +323,7 @@ function App() {
   const [geoStatus, setGeoStatus] = useState('idle')
   const [geoError, setGeoError] = useState('')
   const [userPosition, setUserPosition] = useState(null)
+  const [mapMode, setMapMode] = useState('all')
   const [selectedMapEpisodeId, setSelectedMapEpisodeId] = useState(null)
 
   const [activeEpisodeId, setActiveEpisodeId] = useState(null)
@@ -598,10 +599,18 @@ function App() {
   }, [filteredEpisodes, userPosition])
 
   const nearestEpisodeIds = useMemo(() => new Set(nearestEpisodes.map((episode) => episode.id)), [nearestEpisodes])
+  const isNearestModeActive = mapMode === 'nearest' && Boolean(userPosition)
+
+  const mapEpisodes = useMemo(() => {
+    if (isNearestModeActive) {
+      return nearestEpisodes
+    }
+    return filteredEpisodes
+  }, [filteredEpisodes, isNearestModeActive, nearestEpisodes])
 
   const mapPoints = useMemo(
     () =>
-      filteredEpisodes.map((episode) => ({
+      mapEpisodes.map((episode) => ({
         id: episode.id,
         title: episode.title,
         category: episode.category,
@@ -611,12 +620,12 @@ function App() {
         active: nearestEpisodeIds.has(episode.id),
         episode,
       })),
-    [filteredEpisodes, nearestEpisodeIds],
+    [mapEpisodes, nearestEpisodeIds],
   )
 
   const selectedMapEpisode = useMemo(
-    () => filteredEpisodes.find((episode) => episode.id === selectedMapEpisodeId) || null,
-    [filteredEpisodes, selectedMapEpisodeId],
+    () => mapEpisodes.find((episode) => episode.id === selectedMapEpisodeId) || null,
+    [mapEpisodes, selectedMapEpisodeId],
   )
 
   const playEpisode = async (episode) => {
@@ -907,16 +916,50 @@ function App() {
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <p className="text-xs uppercase tracking-[0.18em] text-mist/55">Mode Carte</p>
-                  <h2 className="font-serif text-4xl text-opera">5 tchatches les plus proches</h2>
+                  <h2 className="font-serif text-4xl text-opera">
+                    {mapMode === 'nearest' ? '5 tchatches les plus proches' : 'Toutes les tchatches disponibles'}
+                  </h2>
                 </div>
-                <button
-                  type="button"
-                  className="inline-flex items-center gap-2 rounded-full border border-opera/60 px-4 py-2 text-xs font-semibold tracking-[0.12em] text-operaSoft transition hover:bg-opera/10"
-                  onClick={requestGeo}
-                >
-                  <LocateFixed className="h-4 w-4" />
-                  Me localiser
-                </button>
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  <div className="inline-flex rounded-full border border-anthracite/70 bg-black/35 p-1">
+                    <button
+                      type="button"
+                      className={`rounded-full px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.1em] transition ${
+                        mapMode === 'all'
+                          ? 'bg-opera/25 text-operaSoft'
+                          : 'text-mist/65 hover:bg-white/5 hover:text-mist/90'
+                      }`}
+                      onClick={() => setMapMode('all')}
+                    >
+                      Toutes
+                    </button>
+                    <button
+                      type="button"
+                      className={`rounded-full px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.1em] transition ${
+                        mapMode === 'nearest'
+                          ? 'bg-opera/25 text-operaSoft'
+                          : 'text-mist/65 hover:bg-white/5 hover:text-mist/90'
+                      }`}
+                      onClick={() => {
+                        setMapMode('nearest')
+                        if (!userPosition && geoStatus === 'idle') {
+                          requestGeo()
+                        }
+                      }}
+                    >
+                      5 proches
+                    </button>
+                  </div>
+
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-2 rounded-full border border-opera/60 px-4 py-2 text-xs font-semibold tracking-[0.12em] text-operaSoft transition hover:bg-opera/10"
+                    onClick={requestGeo}
+                  >
+                    <LocateFixed className="h-4 w-4" />
+                    Me localiser
+                  </button>
+                </div>
               </div>
 
               <div className="map-grid map-surface relative mt-5 overflow-hidden rounded-2xl border border-anthracite/80 p-1">
@@ -1005,17 +1048,24 @@ function App() {
               )}
 
               <div className="mt-5 space-y-3">
-                {geoStatus === 'pending' && (
+                {mapMode === 'nearest' && geoStatus === 'pending' && (
                   <p className="text-sm text-mist/70">Localisation en cours...</p>
                 )}
-                {geoStatus === 'error' && <p className="text-sm text-operaSoft">{geoError}</p>}
-                {geoStatus === 'ready' && nearestEpisodes.length === 0 && (
+                {mapMode === 'nearest' && geoStatus === 'error' && (
+                  <p className="text-sm text-operaSoft">{geoError}</p>
+                )}
+                {mapMode === 'nearest' && !userPosition && geoStatus !== 'pending' && (
+                  <p className="text-sm text-mist/70">
+                    La vue 5 proches est optionnelle. Sans position valide, toutes les tchatches restent affichées.
+                  </p>
+                )}
+                {mapEpisodes.length === 0 && (
                   <p className="text-sm text-mist/70">Aucun episode ne correspond a ce filtre.</p>
                 )}
 
-                {nearestEpisodes.map((episode) => (
+                {mapEpisodes.map((episode) => (
                   <div
-                    key={`near-${episode.id}`}
+                    key={`map-${episode.id}`}
                     className="flex items-center justify-between rounded-xl border border-anthracite/70 bg-black/20 px-4 py-3"
                   >
                     <div>
@@ -1024,10 +1074,17 @@ function App() {
                         {episode.category} | {episode.location.label}
                       </p>
                     </div>
-                    <span className="inline-flex items-center gap-2 rounded-full border border-opera/40 px-3 py-1 text-xs text-operaSoft">
-                      <Compass className="h-3.5 w-3.5" />
-                      {episode.distance.toFixed(2)} km
-                    </span>
+                    {mapMode === 'nearest' && userPosition && typeof episode.distance === 'number' ? (
+                      <span className="inline-flex items-center gap-2 rounded-full border border-opera/40 px-3 py-1 text-xs text-operaSoft">
+                        <Compass className="h-3.5 w-3.5" />
+                        {episode.distance.toFixed(2)} km
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-2 rounded-full border border-mist/30 px-3 py-1 text-xs text-mist/75">
+                        <MapPinned className="h-3.5 w-3.5" />
+                        Disponible
+                      </span>
+                    )}
                   </div>
                 ))}
               </div>
