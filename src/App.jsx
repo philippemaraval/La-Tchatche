@@ -1602,10 +1602,9 @@ function App() {
                           )}
                         </div>
 
-                        <div className="hidden items-end gap-2 md:flex md:flex-col">
-                          <div className="rounded-2xl border border-opera/45 bg-gradient-to-b from-[#2b1515] to-[#140f0f] p-2 shadow-[0_10px_24px_rgba(0,0,0,0.45)]">
-                            <div className="mb-1 text-[9px] uppercase tracking-[0.2em] text-operaSoft/70">La Tchatche</div>
-                            <div className="rounded-xl border border-opera/35 bg-[#f6f3ee] p-1.5 shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)]">
+                        <div className="hidden items-end md:flex">
+                          <div className="rounded-2xl border border-anthracite/80 bg-gradient-to-b from-[#2a2a2a] to-[#161616] p-2 shadow-[0_10px_24px_rgba(0,0,0,0.45)]">
+                            <div className="rounded-xl border border-anthracite/70 bg-[#f6f3ee] p-1.5 shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)]">
                               <QRCodeSVG
                                 value={qrValue}
                                 size={84}
@@ -1616,7 +1615,6 @@ function App() {
                               />
                             </div>
                           </div>
-                          <span className="text-[0.62rem] uppercase tracking-[0.18em] text-operaSoft/65">SCAN</span>
                         </div>
                       </div>
 
