@@ -1125,7 +1125,7 @@ function App() {
             </button>
           </div>
 
-          <div className="mobile-scroll flex items-center gap-2 rounded-full border border-anthracite/80 bg-asphalt/60 px-3 py-2 shadow-glass md:justify-self-center">
+          <div className="mobile-scroll flex flex-wrap items-center justify-center gap-2 rounded-2xl border border-anthracite/80 bg-asphalt/60 px-3 py-2 shadow-glass md:justify-self-center md:rounded-full md:flex-nowrap">
             <button
               type="button"
               className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold tracking-[0.12em] transition ${
@@ -1291,10 +1291,10 @@ function App() {
                   </h2>
                 </div>
                 <div className="flex flex-wrap items-center justify-end gap-2">
-                  <div className="inline-flex rounded-full border border-anthracite/70 bg-black/35 p-1">
+                  <div className="flex flex-wrap rounded-2xl border border-anthracite/70 bg-black/35 p-1 md:rounded-full">
                     <button
                       type="button"
-                      className={`whitespace-nowrap rounded-full px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] transition md:text-[11px] ${
+                      className={`rounded-full px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] transition md:text-[11px] ${
                         mapMode === 'all'
                           ? 'bg-opera/25 text-operaSoft'
                           : 'text-mist/65 hover:bg-white/5 hover:text-mist/90'
@@ -1305,7 +1305,7 @@ function App() {
                     </button>
                     <button
                       type="button"
-                      className={`whitespace-nowrap rounded-full px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] transition md:text-[11px] ${
+                      className={`rounded-full px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] transition md:text-[11px] ${
                         mapMode === 'nearest'
                           ? 'bg-opera/25 text-operaSoft'
                           : 'text-mist/65 hover:bg-white/5 hover:text-mist/90'
@@ -1321,7 +1321,7 @@ function App() {
                     </button>
                     <button
                       type="button"
-                      className={`whitespace-nowrap rounded-full px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] transition md:text-[11px] ${
+                      className={`rounded-full px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] transition md:text-[11px] ${
                         mapMode === 'latest'
                           ? 'bg-opera/25 text-operaSoft'
                           : 'text-mist/65 hover:bg-white/5 hover:text-mist/90'
@@ -1497,13 +1497,13 @@ function App() {
                   return (
                     <div
                       key={`map-${episode.id}`}
-                      className={`flex items-center justify-between rounded-xl px-4 py-3 ${
+                      className={`flex flex-wrap items-center justify-between gap-2 rounded-xl px-4 py-3 sm:flex-nowrap ${
                         mapMode !== 'all' && !isFocused
                           ? 'border border-mist/25 bg-black/10 text-mist/60'
                           : 'border border-anthracite/70 bg-black/20'
                       }`}
                     >
-                      <div>
+                      <div className="min-w-0 flex-1">
                         <p className={`font-serif text-xl ${mapMode !== 'all' && !isFocused ? 'text-mist/70' : 'text-opera'}`}>
                           {episode.title}
                         </p>
@@ -1603,8 +1603,9 @@ function App() {
                         </div>
 
                         <div className="hidden items-end gap-2 md:flex md:flex-col">
-                          <div className="rounded-2xl border border-opera/35 bg-black/45 p-2 shadow-[0_10px_24px_rgba(0,0,0,0.45)]">
-                            <div className="rounded-xl border border-opera/25 bg-[#f6f3ee] p-1.5">
+                          <div className="rounded-2xl border border-opera/45 bg-gradient-to-b from-[#2b1515] to-[#140f0f] p-2 shadow-[0_10px_24px_rgba(0,0,0,0.45)]">
+                            <div className="mb-1 text-[9px] uppercase tracking-[0.2em] text-operaSoft/70">La Tchatche</div>
+                            <div className="rounded-xl border border-opera/35 bg-[#f6f3ee] p-1.5 shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)]">
                               <QRCodeSVG
                                 value={qrValue}
                                 size={84}
@@ -1645,10 +1646,10 @@ function App() {
                         </div>
                       </div>
 
-                      <div className="mt-7 flex items-center gap-3">
+                      <div className="mt-7 flex flex-wrap items-center gap-3">
                         <button
                           type="button"
-                          className="inline-flex h-12 w-12 items-center justify-center rounded-full border border-opera/75 bg-opera/18 text-operaSoft transition hover:bg-opera/28"
+                          className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-opera/75 bg-opera/18 text-operaSoft transition hover:bg-opera/28"
                           onClick={() => playEpisode(episode)}
                           aria-label={playingThis ? 'Pause' : 'Play'}
                         >
@@ -1657,7 +1658,7 @@ function App() {
 
                         <button
                           type="button"
-                          className="rounded-full border border-anthracite/75 px-3 py-2 text-xs uppercase tracking-[0.1em] text-mist/75 transition hover:border-opera/55 hover:text-operaSoft disabled:cursor-not-allowed disabled:opacity-40"
+                          className="shrink-0 rounded-full border border-anthracite/75 px-3 py-2 text-xs uppercase tracking-[0.1em] text-mist/75 transition hover:border-opera/55 hover:text-operaSoft disabled:cursor-not-allowed disabled:opacity-40"
                           onClick={() => seekRelative(-10)}
                           disabled={!isActive}
                         >
@@ -1666,14 +1667,14 @@ function App() {
 
                         <button
                           type="button"
-                          className="rounded-full border border-anthracite/75 px-3 py-2 text-xs uppercase tracking-[0.1em] text-mist/75 transition hover:border-opera/55 hover:text-operaSoft disabled:cursor-not-allowed disabled:opacity-40"
+                          className="shrink-0 rounded-full border border-anthracite/75 px-3 py-2 text-xs uppercase tracking-[0.1em] text-mist/75 transition hover:border-opera/55 hover:text-operaSoft disabled:cursor-not-allowed disabled:opacity-40"
                           onClick={() => seekRelative(10)}
                           disabled={!isActive}
                         >
                           +10s
                         </button>
 
-                        <div className="flex-1">
+                        <div className="order-last basis-full md:order-none md:flex-1">
                           <input
                             type="range"
                             min={0}
@@ -1698,11 +1699,11 @@ function App() {
                           />
                         </div>
 
-                        <p className="w-24 text-right text-sm text-mist/80">
+                        <p className="ml-auto w-auto shrink-0 text-right text-xs text-mist/80 md:w-24 md:text-sm">
                           {formatTime(shownCurrent)} / {formatTime(shownDuration)}
                         </p>
 
-                        <label className="rounded-full border border-anthracite/75 px-2 py-1 text-xs text-mist/75">
+                        <label className="shrink-0 rounded-full border border-anthracite/75 px-2 py-1 text-xs text-mist/75">
                           <span className="mr-1">Vitesse</span>
                           <select
                             value={playbackRate}
@@ -1719,7 +1720,7 @@ function App() {
 
                         <button
                           type="button"
-                          className="inline-flex items-center gap-2 rounded-full border border-anthracite/70 px-3 py-2 text-xs uppercase tracking-[0.12em] text-operaSoft transition hover:border-opera/65 hover:bg-opera/10"
+                          className="inline-flex shrink-0 items-center gap-2 rounded-full border border-anthracite/70 px-3 py-2 text-xs uppercase tracking-[0.12em] text-operaSoft transition hover:border-opera/65 hover:bg-opera/10"
                           onClick={() => openQuoteModal(episode)}
                         >
                           <Quote className="h-3.5 w-3.5" />
@@ -1730,7 +1731,7 @@ function App() {
                       <div className="mt-6 fade-divider" />
 
                       <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           <button
                             type="button"
                             onClick={() => toggleFavorite(episode.id)}
@@ -1845,14 +1846,14 @@ function App() {
               </label>
             </div>
 
-            <div className="mt-2 flex items-center gap-3">
+            <div className="mt-2 flex flex-wrap items-center gap-2">
               <input
                 type="range"
                 min={0}
                 max={100}
                 step={0.1}
                 value={progress}
-                className="audio-slider flex-1"
+                className="audio-slider order-last basis-full sm:order-none sm:flex-1"
                 style={{ '--progress': `${progress}%` }}
                 onChange={(event) => {
                   if (!howlRef.current || !activeEpisode) {
@@ -1867,7 +1868,7 @@ function App() {
                   persistPlaybackPosition(activeEpisode.id, nextSeek, total)
                 }}
               />
-              <p className="w-24 text-right text-xs text-mist/75">
+              <p className="ml-auto w-auto text-right text-xs text-mist/75 sm:w-24">
                 {formatTime(currentTime)} / {formatTime(trackDuration || activeEpisode.duration)}
               </p>
             </div>
@@ -1875,7 +1876,7 @@ function App() {
         </div>
       )}
 
-      <footer className="mx-auto mt-8 flex w-full max-w-[860px] items-center justify-center gap-8 border-t border-anthracite/80 px-4 py-6 text-sm md:px-6">
+      <footer className="mx-auto mt-8 flex w-full max-w-[860px] flex-wrap items-center justify-center gap-4 border-t border-anthracite/80 px-4 py-6 text-sm md:gap-8 md:px-6">
         <a href="#" className="footer-link">
           Mentions Legales
         </a>
@@ -1908,7 +1909,7 @@ function App() {
               animate={{ y: 0, opacity: 1, scale: 1 }}
               exit={{ y: 14, opacity: 0, scale: 0.98 }}
               transition={{ duration: 0.24 }}
-              className="episode-shell w-full max-w-xl rounded-2xl p-5"
+              className="episode-shell max-h-[86vh] w-full max-w-xl overflow-y-auto rounded-2xl p-5"
               onClick={(event) => event.stopPropagation()}
             >
               <div className="mb-4 flex items-start justify-between gap-3">
@@ -1995,7 +1996,7 @@ function App() {
               animate={{ y: 0, opacity: 1, scale: 1 }}
               exit={{ y: 14, opacity: 0, scale: 0.98 }}
               transition={{ duration: 0.24 }}
-              className="episode-shell w-full max-w-xl rounded-2xl p-5"
+              className="episode-shell max-h-[86vh] w-full max-w-xl overflow-y-auto rounded-2xl p-5"
               onClick={(event) => event.stopPropagation()}
             >
               <div className="mb-4 flex items-start justify-between gap-3">

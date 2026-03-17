@@ -22,11 +22,20 @@ html,
 body,
 #root {
   min-height: 100%;
+  width: 100%;
+  max-width: 100%;
 }
 
 body {
   margin: 0;
   background: #121212;
+  overflow-x: hidden;
+}
+
+img,
+svg,
+canvas {
+  max-width: 100%;
 }
 
 .bitume-noise {
@@ -110,6 +119,8 @@ body {
   background: linear-gradient(150deg, rgba(18, 18, 18, 0.98) 0%, rgba(10, 10, 10, 0.98) 100%);
   border: 1px solid rgba(178, 34, 34, 0.7);
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.55);
+  max-width: min(16rem, calc(100vw - 2rem));
+  overflow-wrap: anywhere;
 }
 
 .audio-slider,
@@ -212,11 +223,21 @@ body {
 
 @media (max-width: 720px) {
   .mobile-scroll {
-    overflow-x: auto;
-    scrollbar-width: none;
+    overflow-x: visible;
+    flex-wrap: wrap;
+    justify-content: center;
   }
 
   .mobile-scroll::-webkit-scrollbar {
     display: none;
+  }
+
+  .episode-shell {
+    overflow: hidden;
+  }
+
+  .leaflet-control-attribution {
+    max-width: calc(100% - 12px);
+    font-size: 10px;
   }
 }
