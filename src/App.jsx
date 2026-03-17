@@ -138,6 +138,10 @@ const MotionArticle = motion.article
 const MotionDiv = motion.div
 const MotionSpan = motion.span
 const MARSEILLE_CENTER = [43.2965, 5.3698]
+const MARSEILLE_BOUNDS = [
+  [43.16, 5.03],
+  [43.5, 5.62],
+]
 
 function FitMapBounds({ points, userPosition }) {
   const map = useMap()
@@ -294,6 +298,7 @@ function App() {
   const [episodes, setEpisodes] = useState(() => buildEpisodeBatch(0, 8))
   const [viewMode, setViewMode] = useState('feed')
   const [selectedNav, setSelectedNav] = useState(null)
+  const [mapCategory, setMapCategory] = useState(null)
   const [query, setQuery] = useState('')
   const [loadingMore, setLoadingMore] = useState(false)
   const [hasMore, setHasMore] = useState(true)
@@ -562,14 +567,10 @@ function App() {
     }
   }, [hasMore, loadMoreEpisodes, viewMode])
 
-  const filteredEpisodes = useMemo(() => {
+  const searchedEpisodes = useMemo(() => {
     const search = query.trim().toLowerCase()
 
     return episodes.filter((episode) => {
-      if (selectedNav && episode.category !== selectedNav) {
-        return false
-      }
-
       if (!search) {
         return true
       }
@@ -577,14 +578,30 @@ function App() {
       const haystack = `${episode.title} ${episode.summary} ${episode.category} ${episode.location.label}`.toLowerCase()
       return haystack.includes(search)
     })
-  }, [episodes, query, selectedNav])
+  }, [episodes, query])
+
+  const filteredEpisodes = useMemo(() => {
+    if (!selectedNav) {
+      return searchedEpisodes
+    }
+
+    return searchedEpisodes.filter((episode) => episode.category === selectedNav)
+  }, [searchedEpisodes, selectedNav])
+
+  const mapFilteredEpisodes = useMemo(() => {
+    if (!mapCategory) {
+      return searchedEpisodes
+    }
+
+    return searchedEpisodes.filter((episode) => episode.category === mapCategory)
+  }, [mapCategory, searchedEpisodes])
 
   const nearestEpisodes = useMemo(() => {
     if (!userPosition) {
       return []
     }
 
-    return filteredEpisodes
+    return mapFilteredEpisodes
       .map((episode) => ({
         ...episode,
         distance: haversineDistanceKm(
@@ -596,9 +613,9 @@ function App() {
       }))
       .sort((a, b) => a.distance - b.distance)
       .slice(0, 5)
-  }, [filteredEpisodes, userPosition])
+  }, [mapFilteredEpisodes, userPosition])
 
-  const latestEpisodes = useMemo(() => filteredEpisodes.slice(-5).reverse(), [filteredEpisodes])
+  const latestEpisodes = useMemo(() => mapFilteredEpisodes.slice(-5).reverse(), [mapFilteredEpisodes])
   const nearestEpisodeIds = useMemo(() => new Set(nearestEpisodes.map((episode) => episode.id)), [nearestEpisodes])
   const latestEpisodeIds = useMemo(() => new Set(latestEpisodes.map((episode) => episode.id)), [latestEpisodes])
   const nearestDistanceById = useMemo(
@@ -609,7 +626,7 @@ function App() {
 
   const focusedEpisodeIds = useMemo(() => {
     if (mapMode === 'all') {
-      return new Set(filteredEpisodes.map((episode) => episode.id))
+      return new Set(mapFilteredEpisodes.map((episode) => episode.id))
     }
 
     if (mapMode === 'latest') {
@@ -621,9 +638,9 @@ function App() {
     }
 
     return new Set()
-  }, [filteredEpisodes, isNearestModeActive, latestEpisodeIds, mapMode, nearestEpisodeIds])
+  }, [isNearestModeActive, latestEpisodeIds, mapFilteredEpisodes, mapMode, nearestEpisodeIds])
 
-  const mapEpisodes = filteredEpisodes
+  const mapEpisodes = mapFilteredEpisodes
 
   const mapPoints = useMemo(
     () =>
@@ -860,11 +877,24 @@ function App() {
       <header className="frosted-header sticky top-0 z-40 border-b border-anthracite/90 bg-bitume/88">
         <div className="mx-auto grid w-full max-w-[1360px] gap-4 px-4 py-3 md:grid-cols-[1fr_auto_1fr] md:items-center md:px-6">
           <div className="flex min-w-0 items-center gap-3">
-            <img
-              src={laTchatcheLogo}
-              alt="Logo La Tchatche"
-              className="h-14 w-auto rounded-sm object-contain shadow-[0_12px_28px_rgba(0,0,0,0.5)] md:h-16"
-            />
+            <button
+              type="button"
+              aria-label="Retour à l'accueil"
+              className="rounded-sm transition hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-opera/55"
+              onClick={() => {
+                setViewMode('feed')
+                setSelectedNav(null)
+                setMapCategory(null)
+                setMapMode('all')
+                setSelectedMapEpisodeId(null)
+              }}
+            >
+              <img
+                src={laTchatcheLogo}
+                alt="Logo La Tchatche"
+                className="h-14 w-auto rounded-sm object-contain shadow-[0_12px_28px_rgba(0,0,0,0.5)] md:h-16"
+              />
+            </button>
           </div>
 
           <div className="mobile-scroll flex items-center gap-2 rounded-full border border-anthracite/80 bg-asphalt/60 px-3 py-2 shadow-glass md:justify-self-center">
@@ -876,9 +906,20 @@ function App() {
                   : 'border-anthracite bg-transparent text-mist/80 hover:border-opera/55 hover:text-operaSoft'
               }`}
               onClick={() => {
-                setViewMode((current) => (current === 'map' ? 'feed' : 'map'))
-                if (!userPosition && geoStatus === 'idle') {
-                  requestGeo()
+                if (viewMode === 'map') {
+                  setViewMode('feed')
+                  setMapCategory(null)
+                  setMapMode('all')
+                  setSelectedMapEpisodeId(null)
+                } else {
+                  setViewMode('map')
+                  setSelectedNav(null)
+                  setMapCategory(null)
+                  setMapMode('all')
+                  setSelectedMapEpisodeId(null)
+                  if (!userPosition && geoStatus === 'idle') {
+                    requestGeo()
+                  }
                 }
               }}
             >
@@ -896,6 +937,9 @@ function App() {
                   }`}
                   onClick={() => {
                     setViewMode('feed')
+                    setMapCategory(null)
+                    setMapMode('all')
+                    setSelectedMapEpisodeId(null)
                     setSelectedNav((current) => (current === item ? null : item))
                   }}
                 >
@@ -994,11 +1038,56 @@ function App() {
                 </div>
               </div>
 
+              <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] md:text-[11px]">
+                <span className="uppercase tracking-[0.16em] text-mist/38">Filtre catégorie carte</span>
+                <button
+                  type="button"
+                  className={`rounded-full border px-2.5 py-1 uppercase tracking-[0.08em] transition ${
+                    !mapCategory
+                      ? 'border-opera/40 bg-opera/10 text-operaSoft/95'
+                      : 'border-mist/20 text-mist/55 hover:border-mist/35 hover:text-mist/85'
+                  }`}
+                  onClick={() => {
+                    setMapCategory(null)
+                    setSelectedMapEpisodeId(null)
+                  }}
+                >
+                  Toutes
+                </button>
+                {NAV_ITEMS.map((item) => (
+                  <button
+                    key={`map-cat-${item}`}
+                    type="button"
+                    className={`rounded-full border px-2.5 py-1 uppercase tracking-[0.08em] transition ${
+                      mapCategory === item
+                        ? 'border-opera/40 bg-opera/10 text-operaSoft/95'
+                        : 'border-mist/20 text-mist/55 hover:border-mist/35 hover:text-mist/85'
+                    }`}
+                    onClick={() => {
+                      setMapCategory((current) => (current === item ? null : item))
+                      setSelectedMapEpisodeId(null)
+                    }}
+                  >
+                    {item}
+                  </button>
+                ))}
+              </div>
+
               <div className="map-grid map-surface relative mt-5 overflow-hidden rounded-2xl border border-anthracite/80 p-1">
-                <MapContainer center={MARSEILLE_CENTER} zoom={12} scrollWheelZoom className="h-72 w-full rounded-xl">
+                <MapContainer
+                  center={MARSEILLE_CENTER}
+                  zoom={12}
+                  minZoom={10}
+                  maxZoom={17}
+                  scrollWheelZoom
+                  maxBounds={MARSEILLE_BOUNDS}
+                  maxBoundsViscosity={1}
+                  className="h-72 w-full rounded-xl"
+                >
                   <TileLayer
                     attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
                     url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+                    noWrap
                   />
                   <FitMapBounds points={mapPoints} userPosition={userPosition} />
 
