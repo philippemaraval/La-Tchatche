@@ -1603,13 +1603,16 @@ function App() {
                         </div>
 
                         <div className="hidden items-end gap-2 md:flex md:flex-col">
-                          <QRCodeSVG
-                            value={qrValue}
-                            size={60}
-                            bgColor="transparent"
-                            fgColor="#B22222"
-                            level="Q"
-                          />
+                          <div className="rounded-xl bg-white p-2 shadow-[0_8px_20px_rgba(0,0,0,0.35)]">
+                            <QRCodeSVG
+                              value={qrValue}
+                              size={88}
+                              bgColor="#ffffff"
+                              fgColor="#101010"
+                              level="M"
+                              marginSize={4}
+                            />
+                          </div>
                           <span className="text-[0.62rem] uppercase tracking-[0.18em] text-mist/45">QR</span>
                         </div>
                       </div>
