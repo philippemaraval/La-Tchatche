@@ -598,15 +598,18 @@ function App() {
       .slice(0, 5)
   }, [filteredEpisodes, userPosition])
 
-  const nearestEpisodeIds = useMemo(() => new Set(nearestEpisodes.map((episode) => episode.id)), [nearestEpisodes])
+  const latestEpisodes = useMemo(() => filteredEpisodes.slice(-5).reverse(), [filteredEpisodes])
   const isNearestModeActive = mapMode === 'nearest' && Boolean(userPosition)
 
   const mapEpisodes = useMemo(() => {
     if (isNearestModeActive) {
       return nearestEpisodes
     }
+    if (mapMode === 'latest') {
+      return latestEpisodes
+    }
     return filteredEpisodes
-  }, [filteredEpisodes, isNearestModeActive, nearestEpisodes])
+  }, [filteredEpisodes, isNearestModeActive, latestEpisodes, mapMode, nearestEpisodes])
 
   const mapPoints = useMemo(
     () =>
@@ -617,16 +620,17 @@ function App() {
         locationLabel: episode.location.label,
         lat: episode.location.lat,
         lng: episode.location.lng,
-        active: nearestEpisodeIds.has(episode.id),
         episode,
       })),
-    [mapEpisodes, nearestEpisodeIds],
+    [mapEpisodes],
   )
 
   const selectedMapEpisode = useMemo(
     () => mapEpisodes.find((episode) => episode.id === selectedMapEpisodeId) || null,
     [mapEpisodes, selectedMapEpisodeId],
   )
+
+  const isAllMapMode = mapMode === 'all'
 
   const playEpisode = async (episode) => {
     setAudioError('')
@@ -917,14 +921,18 @@ function App() {
                 <div>
                   <p className="text-xs uppercase tracking-[0.18em] text-mist/55">Mode Carte</p>
                   <h2 className="font-serif text-4xl text-opera">
-                    {mapMode === 'nearest' ? '5 tchatches les plus proches' : 'Toutes les tchatches disponibles'}
+                    {mapMode === 'nearest'
+                      ? '5 tchatches les plus proches'
+                      : mapMode === 'latest'
+                        ? '5 dernières tchatches'
+                        : 'Toutes les tchatches disponibles'}
                   </h2>
                 </div>
                 <div className="flex flex-wrap items-center justify-end gap-2">
                   <div className="inline-flex rounded-full border border-anthracite/70 bg-black/35 p-1">
                     <button
                       type="button"
-                      className={`rounded-full px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.1em] transition ${
+                      className={`whitespace-nowrap rounded-full px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] transition md:text-[11px] ${
                         mapMode === 'all'
                           ? 'bg-opera/25 text-operaSoft'
                           : 'text-mist/65 hover:bg-white/5 hover:text-mist/90'
@@ -935,7 +943,7 @@ function App() {
                     </button>
                     <button
                       type="button"
-                      className={`rounded-full px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.1em] transition ${
+                      className={`whitespace-nowrap rounded-full px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] transition md:text-[11px] ${
                         mapMode === 'nearest'
                           ? 'bg-opera/25 text-operaSoft'
                           : 'text-mist/65 hover:bg-white/5 hover:text-mist/90'
@@ -947,7 +955,18 @@ function App() {
                         }
                       }}
                     >
-                      5 proches
+                      5 tchatches les plus proches
+                    </button>
+                    <button
+                      type="button"
+                      className={`whitespace-nowrap rounded-full px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] transition md:text-[11px] ${
+                        mapMode === 'latest'
+                          ? 'bg-opera/25 text-operaSoft'
+                          : 'text-mist/65 hover:bg-white/5 hover:text-mist/90'
+                      }`}
+                      onClick={() => setMapMode('latest')}
+                    >
+                      5 dernières tchatches
                     </button>
                   </div>
 
@@ -974,11 +993,11 @@ function App() {
                     <CircleMarker
                       key={point.id}
                       center={[point.lat, point.lng]}
-                      radius={point.active ? 8 : 6}
+                      radius={isAllMapMode ? 6 : 8}
                       pathOptions={{
-                        color: point.active ? '#b22222' : '#d7d7d7',
-                        fillColor: point.active ? '#b22222' : '#7b7b7b',
-                        fillOpacity: point.active ? 0.9 : 0.7,
+                        color: isAllMapMode ? '#d7d7d7' : '#b22222',
+                        fillColor: isAllMapMode ? '#7b7b7b' : '#b22222',
+                        fillOpacity: isAllMapMode ? 0.76 : 0.9,
                         weight: 2,
                       }}
                       eventHandlers={{
@@ -1056,7 +1075,8 @@ function App() {
                 )}
                 {mapMode === 'nearest' && !userPosition && geoStatus !== 'pending' && (
                   <p className="text-sm text-mist/70">
-                    La vue 5 proches est optionnelle. Sans position valide, toutes les tchatches restent affichées.
+                    La vue 5 tchatches les plus proches est optionnelle. Sans position valide, toutes les tchatches
+                    restent affichées.
                   </p>
                 )}
                 {mapEpisodes.length === 0 && (
@@ -1078,6 +1098,11 @@ function App() {
                       <span className="inline-flex items-center gap-2 rounded-full border border-opera/40 px-3 py-1 text-xs text-operaSoft">
                         <Compass className="h-3.5 w-3.5" />
                         {episode.distance.toFixed(2)} km
+                      </span>
+                    ) : mapMode === 'latest' ? (
+                      <span className="inline-flex items-center gap-2 rounded-full border border-opera/35 px-3 py-1 text-xs text-operaSoft/90">
+                        <MapPinned className="h-3.5 w-3.5" />
+                        Récent
                       </span>
                     ) : (
                       <span className="inline-flex items-center gap-2 rounded-full border border-mist/30 px-3 py-1 text-xs text-mist/75">
