@@ -20,8 +20,10 @@ Site officiel du podcast **La Tchatche**, construit en SPA React avec une direct
 - Transition sonore entre pistes (ambiance portuaire)
 - Mode Carte avec geolocalisation et episodes les plus proches
 - Favoris persistants via `localStorage`
-- Partage d'extraits (modal `Citer`, segment 15s-30s)
+- Partage d'extraits avec deep-link hash (`#episode`, `t`, `d`)
 - QR code, partage social, telechargement MP3
+- Suggestions utilisateur via API edge (`POST /api/suggestions`) avec fallback local
+- PWA: service worker avec fallback navigation et cache audio hors ligne
 
 ## Lancer le projet
 
@@ -39,18 +41,28 @@ npm run dev      # serveur local
 npm run build    # build production
 npm run preview  # previsualisation build
 npm run lint     # verifications ESLint
+npm run test     # tests automatises (Vitest)
+npm run test:coverage
 ```
 
 ## Structure
 
 - `src/App.jsx` : interface principale + logique feed/audio/carte
+- `src/features/episodes/catalog.js` : catalogue episodes + constantes editoriales
+- `src/features/deeplink/hashDeepLink.js` : parse/build des liens de partage
+- `src/features/suggestions/suggestionService.js` : envoi API + fallback localStorage
+- `functions/api/suggestions.js` : endpoint edge Cloudflare Pages Functions
 - `src/index.css` : systeme visuel premium (palette, texture, composants)
 - `src/assets/la-tchatche-logo.png` : logo officiel
 - `tailwind.config.js` : tokens visuels et extensions Tailwind
 
+## Variables d'environnement
+
+- `VITE_SUGGESTIONS_API_URL` (optionnelle): URL de l'API suggestions.
+  - valeur par defaut: `/api/suggestions`
+
 ## Notes
 
-- Le projet ne necessite pas de variables d'environnement pour le moment.
 - Les URLs audio de demonstration sont a remplacer par les fichiers definitifs du podcast.
 
 ## Deploiement Cloudflare Pages

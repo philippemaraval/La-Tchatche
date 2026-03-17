@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Howl } from 'howler'
 import { latLngBounds } from 'leaflet'
@@ -19,147 +19,38 @@ import {
   X,
 } from 'lucide-react'
 import laTchatcheLogo from './assets/la-tchatche-logo.png'
-
-const NAV_ITEMS = ['Marchés', 'Cafés', 'Plages', 'Stade', 'Boutiques', 'Écoles']
-
-const LEXICON = {
-  accent: 'L accent marseillais est chantant, solaire et tres identitaire.',
-  minot: 'Un minot est un enfant du quartier, souvent plein de malice.',
-  gabian: 'Gabian designe la mouette locale, omnipresente autour du port.',
-  degun: 'Degun signifie personne. Exemple: "Y a degun sur la place."',
-  fada: 'Fada veut dire un peu fou, souvent avec affection.',
-  pitchoun: 'Pitchoun decrit un petit enfant, terme affectif du Sud.',
-  emboucaner: 'Emboucaner, c est se meler d une affaire et creer du remous.',
-}
-
-const BASE_EPISODES = [
-  {
-    id: 'ep-001',
-    slug: 'marius-roi-panier',
-    title: 'Marius : Le Roi du Panier',
-    category: 'Stade',
-    location: { label: 'Le Panier', lat: 43.3002, lng: 5.3698 },
-    duration: 225,
-    keywords: ['accent', 'degun', 'fada'],
-    summary:
-      'Il parle de petanque comme d une religion, entre rire gras et tacle glisse. Un [[accent]] qui sent le soleil et les gradins ou il n y a [[degun]] quand l OM est en deplacement.',
-    audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
-  },
-  {
-    id: 'ep-002',
-    slug: 'samia-cours-julien-neons',
-    title: 'Samia : Neons du Cours Julien',
-    category: 'Boutiques',
-    location: { label: 'Cours Julien', lat: 43.2933, lng: 5.3836 },
-    duration: 248,
-    keywords: ['minot', 'fada', 'emboucaner'],
-    summary:
-      'Dans les rues qui vibrent jusqu a tard, chaque facade raconte un couplet. Les [[minot]] dansent et les anciens disent que c est un peu [[fada]], mais la ville aime cette energie.',
-    audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3',
-  },
-  {
-    id: 'ep-003',
-    slug: 'jeanine-vieux-port-matin',
-    title: 'Jeanine : Matin du Vieux-Port',
-    category: 'Cafés',
-    location: { label: 'Vieux-Port', lat: 43.2951, lng: 5.3743 },
-    duration: 201,
-    keywords: ['gabian', 'accent'],
-    summary:
-      'Avant la foule, il y a les bateaux, le cafe et les [[gabian]] qui tournent. Sa voix tire des images nettes, presque en noir et rouge, avec un [[accent]] de cinema.',
-    audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3',
-  },
-  {
-    id: 'ep-004',
-    slug: 'amelie-plage-soir',
-    title: 'Amelie : L Ecume de Prado',
-    category: 'Plages',
-    location: { label: 'Plages du Prado', lat: 43.2694, lng: 5.3756 },
-    duration: 232,
-    keywords: ['pitchoun', 'gabian'],
-    summary:
-      'Le vent ramene les histoires de famille sur le sable. On entend les [[pitchoun]] courir, les [[gabian]] crier, et la ville prendre une respiration plus lente.',
-    audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3',
-  },
-  {
-    id: 'ep-005',
-    slug: 'nadir-noailles-marche',
-    title: 'Nadir : Le Marche qui Deborde',
-    category: 'Marchés',
-    location: { label: 'Noailles', lat: 43.2968, lng: 5.3796 },
-    duration: 239,
-    keywords: ['emboucaner', 'degun'],
-    summary:
-      'A Noailles, tout est negocie, improvise, partage. Quand quelqu un veut [[emboucaner]] la discussion, Nadir replace le cadre: ici, on ecoute avant de juger.',
-    audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3',
-  },
-  {
-    id: 'ep-006',
-    slug: 'leila-stade-bouillant',
-    title: 'Leila : Virage en Feu',
-    category: 'Stade',
-    location: { label: 'Orange Velodrome', lat: 43.2699, lng: 5.3959 },
-    duration: 216,
-    keywords: ['fada', 'accent'],
-    summary:
-      'Elle raconte la tribune comme une chorale brute. C est [[fada]], massif, tendre aussi. Le chant monte, l [[accent]] coupe l air, et tout le quartier tient debout.',
-    audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-6.mp3',
-  },
-  {
-    id: 'ep-007',
-    slug: 'paolo-port-ferrys',
-    title: 'Paolo : Ferrys et Brouillard',
-    category: 'Cafés',
-    location: { label: 'Quai du Port', lat: 43.2969, lng: 5.3718 },
-    duration: 255,
-    keywords: ['gabian', 'degun'],
-    summary:
-      'Entre les annonces de depart et l odeur de metal, Paolo garde un calme rare. Il dit qu a 6h, il n y a presque [[degun]], juste les [[gabian]] et le bruit sourd des coques.',
-    audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-7.mp3',
-  },
-  {
-    id: 'ep-008',
-    slug: 'ines-plage-crepuscule',
-    title: 'Ines : Crepuscule a Corbieres',
-    category: 'Écoles',
-    location: { label: 'Corbieres', lat: 43.3282, lng: 5.2921 },
-    duration: 244,
-    keywords: ['pitchoun', 'accent'],
-    summary:
-      'Le soleil tombe derriere les rochers, et la parole devient lente, precise. Ines parle de ses [[pitchoun]] et de cet [[accent]] qui reste meme loin de Marseille.',
-    audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3',
-  },
-]
-
-const MAX_BATCHES = 14
+import {
+  OFFLINE_AUDIO_CACHE_KEY,
+  calculatePlaybackProgress,
+  computeResumePosition,
+  formatAudioTime,
+  seekFromProgress,
+  shiftSeekPosition,
+  shouldClearStoredPosition,
+} from './features/audio'
+import { buildEpisodeHash, parseEpisodeHash } from './features/deeplink/hashDeepLink'
+import {
+  LEXICON,
+  MARSEILLE_BOUNDS,
+  MARSEILLE_CENTER,
+  MAX_BATCHES,
+  NAV_ITEMS,
+  buildEpisodeBatch,
+} from './features/episodes/catalog'
+import { submitSuggestionWithFallback } from './features/suggestions/suggestionService'
+import { parseStoredJson } from './lib/storage'
+import { useAccessibleModal } from './lib/useAccessibleModal'
 const FAVORITES_KEY = 'la-tchatche-favoris'
 const PLAYBACK_POSITIONS_KEY = 'la-tchatche-playback-positions'
 const PLAYBACK_RATE_KEY = 'la-tchatche-playback-rate'
 const OFFLINE_EPISODES_KEY = 'la-tchatche-offline-episodes'
-const OFFLINE_AUDIO_CACHE = 'la-tchatche-audio-v1'
 const SUGGESTIONS_KEY = 'la-tchatche-suggestions'
+const SUGGESTIONS_API_ENDPOINT = import.meta.env.VITE_SUGGESTIONS_API_URL || '/api/suggestions'
 const PLAYBACK_RATE_OPTIONS = [0.8, 1, 1.2, 1.5]
 const MotionSection = motion.section
 const MotionArticle = motion.article
 const MotionDiv = motion.div
 const MotionSpan = motion.span
-const MARSEILLE_CENTER = [43.2965, 5.3698]
-const MARSEILLE_BOUNDS = [
-  [43.16, 5.03],
-  [43.5, 5.62],
-]
-
-function parseStoredJson(key, fallback) {
-  const raw = localStorage.getItem(key)
-  if (!raw) {
-    return fallback
-  }
-  try {
-    return JSON.parse(raw)
-  } catch {
-    return fallback
-  }
-}
 
 function FitMapBounds({ points, userPosition }) {
   const map = useMap()
@@ -187,13 +78,6 @@ function FitMapBounds({ points, userPosition }) {
   return null
 }
 
-function formatTime(value) {
-  const total = Math.max(0, Math.floor(value || 0))
-  const minutes = Math.floor(total / 60)
-  const seconds = total % 60
-  return `${minutes}:${String(seconds).padStart(2, '0')}`
-}
-
 function haversineDistanceKm(lat1, lon1, lat2, lon2) {
   const radius = 6371
   const dLat = ((lat2 - lat1) * Math.PI) / 180
@@ -204,26 +88,6 @@ function haversineDistanceKm(lat1, lon1, lat2, lon2) {
       Math.cos((lat2 * Math.PI) / 180) *
       Math.sin(dLon / 2) ** 2
   return radius * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-}
-
-function buildEpisodeBatch(page, count = 4) {
-  const items = []
-  for (let index = 0; index < count; index += 1) {
-    const base = BASE_EPISODES[(page * count + index) % BASE_EPISODES.length]
-    items.push({
-      ...base,
-      id: `${base.id}-p${page + 1}-${index + 1}`,
-      slug: `${base.slug}-p${page + 1}-${index + 1}`,
-      title: page === 0 ? base.title : `${base.title} (Session ${page + 1})`,
-      duration: base.duration + ((page + index) % 3) * 6,
-      location: {
-        ...base.location,
-        lat: base.location.lat + ((index % 2 === 0 ? 1 : -1) * 0.0018 * page) / 10,
-        lng: base.location.lng + ((index % 3 === 0 ? -1 : 1) * 0.0016 * page) / 10,
-      },
-    })
-  }
-  return items
 }
 
 function WaveformCanvas({ active, playing, progress }) {
@@ -326,17 +190,8 @@ function App() {
   const [hasMore, setHasMore] = useState(true)
 
   const [favorites, setFavorites] = useState(() => {
-    const raw = localStorage.getItem(FAVORITES_KEY)
-    if (!raw) {
-      return []
-    }
-
-    try {
-      const parsed = JSON.parse(raw)
-      return Array.isArray(parsed) ? parsed : []
-    } catch {
-      return []
-    }
+    const parsed = parseStoredJson(FAVORITES_KEY, [])
+    return Array.isArray(parsed) ? parsed : []
   })
 
   const favoriteSet = useMemo(() => new Set(favorites), [favorites])
@@ -375,6 +230,10 @@ function App() {
   const [offlineBusyId, setOfflineBusyId] = useState(null)
   const [suggestModalOpen, setSuggestModalOpen] = useState(false)
   const [suggestionSent, setSuggestionSent] = useState('')
+  const [suggestSubmitting, setSuggestSubmitting] = useState(false)
+  const [activeHash, setActiveHash] = useState(() =>
+    typeof window === 'undefined' ? '' : window.location.hash,
+  )
   const [suggestForm, setSuggestForm] = useState({
     name: '',
     email: '',
@@ -392,6 +251,26 @@ function App() {
   const audioContextRef = useRef(null)
   const bridgeStopRef = useRef(null)
   const lastPositionWriteRef = useRef({ episodeId: null, second: -1 })
+  const lastAppliedHashRef = useRef('')
+  const pendingScrollSlugRef = useRef(null)
+
+  const suggestDialogTitleId = useId()
+  const quoteDialogTitleId = useId()
+  const closeSuggestModal = useCallback(() => {
+    setSuggestModalOpen(false)
+  }, [])
+  const closeQuoteModal = useCallback(() => {
+    setQuoteModal({ open: false, episode: null })
+    setQuoteCopied(false)
+  }, [])
+  const { dialogRef: suggestDialogRef, initialFocusRef: suggestInitialFocusRef } = useAccessibleModal({
+    open: suggestModalOpen,
+    onClose: closeSuggestModal,
+  })
+  const { dialogRef: quoteDialogRef, initialFocusRef: quoteInitialFocusRef } = useAccessibleModal({
+    open: quoteModal.open,
+    onClose: closeQuoteModal,
+  })
 
   useEffect(() => {
     localStorage.setItem(FAVORITES_KEY, JSON.stringify(favorites))
@@ -433,6 +312,42 @@ function App() {
     }
   }, [])
 
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return undefined
+    }
+
+    const syncHash = () => {
+      setActiveHash(window.location.hash)
+    }
+
+    syncHash()
+    window.addEventListener('hashchange', syncHash)
+
+    return () => {
+      window.removeEventListener('hashchange', syncHash)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!pendingScrollSlugRef.current) {
+      return
+    }
+
+    const targetSlug = pendingScrollSlugRef.current
+    const timer = window.setTimeout(() => {
+      const targetNode = document.querySelector(`[data-episode-slug="${targetSlug}"]`)
+      if (targetNode instanceof HTMLElement) {
+        targetNode.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }
+      pendingScrollSlugRef.current = null
+    }, 30)
+
+    return () => {
+      window.clearTimeout(timer)
+    }
+  }, [episodes, viewMode])
+
   const stopProgressTicker = () => {
     if (progressTimerRef.current) {
       clearInterval(progressTimerRef.current)
@@ -447,7 +362,7 @@ function App() {
 
     const safeSecond = Math.max(0, Math.floor(seconds || 0))
     const safeDuration = Math.max(0, Number(duration) || 0)
-    const shouldClear = safeSecond <= 0 || (safeDuration > 0 && safeSecond >= Math.max(0, Math.floor(safeDuration) - 5))
+    const shouldClear = shouldClearStoredPosition(safeSecond, safeDuration)
 
     setPlaybackPositions((current) => {
       const next = { ...current }
@@ -468,12 +383,13 @@ function App() {
 
     const currentSeek = typeof currentHowl.seek() === 'number' ? currentHowl.seek() : 0
     const totalDuration = currentHowl.duration() || trackDuration || 0
-    const nextSeek = Math.max(0, Math.min(totalDuration || currentSeek + deltaSeconds, currentSeek + deltaSeconds))
+    const nextSeek = shiftSeekPosition(currentSeek, deltaSeconds, totalDuration)
     currentHowl.seek(nextSeek)
     setCurrentTime(nextSeek)
     if (totalDuration > 0) {
       setTrackDuration(totalDuration)
-      setProgress(Math.min(100, (nextSeek / totalDuration) * 100))
+      const { percent } = calculatePlaybackProgress(nextSeek, totalDuration)
+      setProgress(percent)
     }
     persistPlaybackPosition(activeEpisodeId, nextSeek, totalDuration)
   }
@@ -490,7 +406,8 @@ function App() {
 
       setCurrentTime(seek)
       setTrackDuration(duration)
-      setProgress(duration > 0 ? Math.min(100, (seek / duration) * 100) : 0)
+      const { percent } = calculatePlaybackProgress(seek, duration)
+      setProgress(percent)
       const currentSecond = Math.floor(seek)
       if (lastPositionWriteRef.current.episodeId !== episodeId || lastPositionWriteRef.current.second !== currentSecond) {
         lastPositionWriteRef.current = { episodeId, second: currentSecond }
@@ -801,7 +718,7 @@ function App() {
   const playEpisode = async (episode) => {
     setAudioError('')
     const current = howlRef.current
-    const resumeAt = Math.max(0, Math.min(playbackPositions[episode.id] || 0, Math.max(0, episode.duration - 1)))
+    const resumeAt = computeResumePosition(playbackPositions[episode.id], episode.duration)
 
     if (activeEpisodeId === episode.id && current) {
       if (current.playing()) {
@@ -869,7 +786,8 @@ function App() {
           const total = next.duration() || episode.duration
           setCurrentTime(resumeAt)
           setTrackDuration(total)
-          setProgress(total > 0 ? Math.min(100, (resumeAt / total) * 100) : 0)
+          const { percent } = calculatePlaybackProgress(resumeAt, total)
+          setProgress(percent)
         }
         setIsPlaying(true)
         startProgressTicker(next, episode.duration, episode.id)
@@ -946,7 +864,7 @@ function App() {
     setAudioError('')
 
     try {
-      const cache = await caches.open(OFFLINE_AUDIO_CACHE)
+      const cache = await caches.open(OFFLINE_AUDIO_CACHE_KEY)
       const request = new Request(episode.audioUrl, { mode: 'no-cors' })
 
       if (offlineEpisodeSet.has(episode.id)) {
@@ -969,39 +887,35 @@ function App() {
     }
   }
 
-  const submitSuggestion = (event) => {
+  const submitSuggestion = async (event) => {
     event.preventDefault()
+    setSuggestionSent('')
+    setSuggestSubmitting(true)
 
-    const payload = {
-      name: suggestForm.name.trim(),
-      email: suggestForm.email.trim(),
-      category: suggestForm.category.trim(),
-      location: suggestForm.location.trim(),
-      pitch: suggestForm.pitch.trim(),
+    try {
+      const result = await submitSuggestionWithFallback({
+        form: suggestForm,
+        endpoint: SUGGESTIONS_API_ENDPOINT,
+        localStorageKey: SUGGESTIONS_KEY,
+      })
+
+      if (!result.ok) {
+        setSuggestionSent(result.message || 'Envoi indisponible pour le moment. Reessaye plus tard.')
+        return
+      }
+
+      const sourceLabel = result.source === 'api' ? 'transmise' : 'enregistree localement'
+      setSuggestionSent(`Merci ${result.payload.name}, proposition ${sourceLabel} (${result.id}).`)
+      setSuggestForm({
+        name: '',
+        email: '',
+        category: NAV_ITEMS[0],
+        location: '',
+        pitch: '',
+      })
+    } finally {
+      setSuggestSubmitting(false)
     }
-
-    if (!payload.name || !payload.category || !payload.location || !payload.pitch) {
-      setSuggestionSent('Merci de remplir les champs obligatoires.')
-      return
-    }
-
-    const submissions = parseStoredJson(SUGGESTIONS_KEY, [])
-    const nextItem = {
-      id: `sugg-${Date.now()}`,
-      createdAt: new Date().toISOString(),
-      ...payload,
-    }
-    const nextBatch = Array.isArray(submissions) ? [nextItem, ...submissions] : [nextItem]
-    localStorage.setItem(SUGGESTIONS_KEY, JSON.stringify(nextBatch))
-
-    setSuggestionSent(`Merci ${payload.name}, proposition enregistree (${nextItem.id}).`)
-    setSuggestForm({
-      name: '',
-      email: '',
-      category: NAV_ITEMS[0],
-      location: '',
-      pitch: '',
-    })
   }
 
   const openQuoteModal = (episode) => {
@@ -1012,31 +926,33 @@ function App() {
     setQuoteCopied(false)
   }
 
-  const closeQuoteModal = () => {
-    setQuoteModal({ open: false, episode: null })
-    setQuoteCopied(false)
-  }
-
   const quoteDurationBase = quoteModal.episode ? quoteModal.episode.duration : 30
   const quoteMaxStart = Math.max(0, quoteDurationBase - 15)
   const quoteMaxLength = Math.min(30, Math.max(15, quoteDurationBase - quoteStart))
   const quoteEnd = Math.min(quoteDurationBase, quoteStart + quoteLength)
+  const resolveEpisodeUrl = useCallback((episodeSlug, startSeconds, durationSeconds) => {
+    const hash = buildEpisodeHash({ episodeSlug, startSeconds, durationSeconds })
+    if (typeof window === 'undefined') {
+      return hash
+    }
+
+    return `${window.location.origin}/${hash}`
+  }, [])
 
   const quoteLink = useMemo(() => {
     if (!quoteModal.episode) {
       return ''
     }
 
-    const origin = window.location.origin
-    return `${origin}/#episode=${quoteModal.episode.slug}&t=${Math.floor(quoteStart)}&d=${Math.floor(quoteLength)}`
-  }, [quoteLength, quoteModal.episode, quoteStart])
+    return resolveEpisodeUrl(quoteModal.episode.slug, Math.floor(quoteStart), Math.floor(quoteLength))
+  }, [quoteLength, quoteModal.episode, quoteStart, resolveEpisodeUrl])
 
   const copyQuote = async () => {
     if (!quoteModal.episode) {
       return
     }
 
-    const payload = `${quoteModal.episode.title} [${formatTime(quoteStart)} - ${formatTime(quoteEnd)}] ${quoteLink}`
+    const payload = `${quoteModal.episode.title} [${formatAudioTime(quoteStart)} - ${formatAudioTime(quoteEnd)}] ${quoteLink}`
 
     try {
       await navigator.clipboard.writeText(payload)
@@ -1045,6 +961,58 @@ function App() {
       setQuoteCopied(false)
     }
   }
+
+  useEffect(() => {
+    const parsed = parseEpisodeHash(activeHash)
+
+    if (!parsed) {
+      lastAppliedHashRef.current = ''
+      return
+    }
+
+    if (lastAppliedHashRef.current === parsed.rawHash) {
+      return
+    }
+
+    const targetEpisode = episodes.find((episode) => episode.slug === parsed.episodeSlug)
+    if (!targetEpisode) {
+      return
+    }
+
+    lastAppliedHashRef.current = parsed.rawHash
+    pendingScrollSlugRef.current = parsed.episodeSlug
+
+    setViewMode('feed')
+    setSelectedNav(null)
+    setMapCategory(null)
+    setMapMode('all')
+    setSelectedMapEpisodeId(null)
+
+    if (parsed.hasStart) {
+      persistPlaybackPosition(targetEpisode.id, parsed.startSeconds, targetEpisode.duration)
+      setPlaybackPositions((current) => ({
+        ...current,
+        [targetEpisode.id]: parsed.startSeconds,
+      }))
+
+      if (activeEpisodeId === targetEpisode.id && howlRef.current) {
+        const total = howlRef.current.duration() || targetEpisode.duration
+        const nextSeek = computeResumePosition(parsed.startSeconds, total, { tailPaddingSeconds: 0 })
+        howlRef.current.seek(nextSeek)
+        setCurrentTime(nextSeek)
+        setTrackDuration(total)
+        const { percent } = calculatePlaybackProgress(nextSeek, total)
+        setProgress(percent)
+      }
+    }
+
+    if (parsed.hasDuration) {
+      setQuoteModal({ open: true, episode: targetEpisode })
+      setQuoteStart(parsed.startSeconds)
+      setQuoteLength(parsed.durationSeconds)
+      setQuoteCopied(false)
+    }
+  }, [activeEpisodeId, activeHash, episodes, persistPlaybackPosition])
 
   const renderSummary = (episode) => {
     const parts = episode.summary.split(/(\[\[[^\]]+\]\])/g).filter(Boolean)
@@ -1186,6 +1154,7 @@ function App() {
                 onChange={(event) => setQuery(event.target.value)}
                 className="w-full bg-transparent text-sm text-mist placeholder:text-mist/45 focus:outline-none md:w-52"
                 placeholder="Rechercher"
+                aria-label="Rechercher un épisode"
                 type="search"
               />
             </label>
@@ -1269,6 +1238,7 @@ function App() {
       </header>
 
       <main className="mx-auto mt-8 w-full max-w-[860px] px-4 md:px-6">
+        <h1 className="sr-only">La Tchatche, podcast marseillais geolocalise</h1>
         <AnimatePresence mode="wait">
           {viewMode === 'map' ? (
             <MotionSection
@@ -1576,11 +1546,12 @@ function App() {
                   const resumeAt = playbackPositions[episode.id] || 0
                   const isOfflineReady = offlineEpisodeSet.has(episode.id)
                   const isOfflineBusy = offlineBusyId === episode.id
-                  const qrValue = `${window.location.origin}/#episode=${episode.slug}`
+                  const qrValue = resolveEpisodeUrl(episode.slug)
 
                   return (
                     <MotionArticle
                       key={episode.id}
+                      data-episode-slug={episode.slug}
                       initial={{ opacity: 0, y: 22, filter: 'blur(4px)' }}
                       whileInView={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
                       viewport={{ amount: 0.25, once: true }}
@@ -1597,7 +1568,7 @@ function App() {
                           </h2>
                           {!isActive && resumeAt > 1 && (
                             <p className="mt-2 text-xs uppercase tracking-[0.12em] text-operaSoft/80">
-                              Reprise dispo a {formatTime(resumeAt)}
+                              Reprise dispo a {formatAudioTime(resumeAt)}
                             </p>
                           )}
                         </div>
@@ -1688,9 +1659,10 @@ function App() {
 
                               const nextProgress = Number(event.target.value)
                               const total = howlRef.current.duration() || shownDuration
-                              const nextSeek = (nextProgress / 100) * total
+                              const nextSeek = seekFromProgress(nextProgress, total)
                               howlRef.current.seek(nextSeek)
-                              setProgress(nextProgress)
+                              const { percent } = calculatePlaybackProgress(nextSeek, total)
+                              setProgress(percent)
                               setCurrentTime(nextSeek)
                               persistPlaybackPosition(episode.id, nextSeek, total)
                             }}
@@ -1698,7 +1670,7 @@ function App() {
                         </div>
 
                         <p className="ml-auto w-auto shrink-0 text-right text-xs text-mist/80 md:w-24 md:text-sm">
-                          {formatTime(shownCurrent)} / {formatTime(shownDuration)}
+                          {formatAudioTime(shownCurrent)} / {formatAudioTime(shownDuration)}
                         </p>
 
                         <label className="shrink-0 rounded-full border border-anthracite/75 px-2 py-1 text-xs text-mist/75">
@@ -1769,7 +1741,7 @@ function App() {
                         <a
                           className="inline-flex items-center gap-2 rounded-full border border-anthracite/80 px-3 py-2 text-xs uppercase tracking-[0.1em] text-mist/82 transition hover:border-opera/60 hover:text-operaSoft"
                           href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(
-                            `${episode.title} - ${window.location.origin}/#episode=${episode.slug}`,
+                            `${episode.title} - ${resolveEpisodeUrl(episode.slug)}`,
                           )}`}
                           target="_blank"
                           rel="noreferrer"
@@ -1859,15 +1831,16 @@ function App() {
                   }
                   const nextProgress = Number(event.target.value)
                   const total = howlRef.current.duration() || trackDuration || activeEpisode.duration
-                  const nextSeek = (nextProgress / 100) * total
+                  const nextSeek = seekFromProgress(nextProgress, total)
                   howlRef.current.seek(nextSeek)
-                  setProgress(nextProgress)
+                  const { percent } = calculatePlaybackProgress(nextSeek, total)
+                  setProgress(percent)
                   setCurrentTime(nextSeek)
                   persistPlaybackPosition(activeEpisode.id, nextSeek, total)
                 }}
               />
               <p className="ml-auto w-auto text-right text-xs text-mist/75 sm:w-24">
-                {formatTime(currentTime)} / {formatTime(trackDuration || activeEpisode.duration)}
+                {formatAudioTime(currentTime)} / {formatAudioTime(trackDuration || activeEpisode.duration)}
               </p>
             </div>
           </div>
@@ -1875,10 +1848,10 @@ function App() {
       )}
 
       <footer className="mx-auto mt-8 flex w-full max-w-[860px] flex-wrap items-center justify-center gap-4 border-t border-anthracite/80 px-4 py-6 text-sm md:gap-8 md:px-6">
-        <a href="#" className="footer-link">
+        <a href="/mentions-legales.html" className="footer-link">
           Mentions Legales
         </a>
-        <a href="#" className="footer-link">
+        <a href="/contact.html" className="footer-link">
           Contact
         </a>
         <button
@@ -1900,7 +1873,7 @@ function App() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={() => setSuggestModalOpen(false)}
+            onClick={closeSuggestModal}
           >
             <MotionDiv
               initial={{ y: 22, opacity: 0, scale: 0.98 }}
@@ -1909,16 +1882,25 @@ function App() {
               transition={{ duration: 0.24 }}
               className="episode-shell max-h-[86vh] w-full max-w-xl overflow-y-auto rounded-2xl p-5"
               onClick={(event) => event.stopPropagation()}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby={suggestDialogTitleId}
+              ref={suggestDialogRef}
+              tabIndex={-1}
             >
               <div className="mb-4 flex items-start justify-between gap-3">
                 <div>
                   <p className="text-xs uppercase tracking-[0.15em] text-mist/55">Contribution</p>
-                  <h3 className="font-serif text-3xl text-opera">Proposer une tchatche</h3>
+                  <h3 id={suggestDialogTitleId} className="font-serif text-3xl text-opera">
+                    Proposer une tchatche
+                  </h3>
                 </div>
                 <button
                   type="button"
                   className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-anthracite/80 text-mist/80 transition hover:border-opera/50 hover:text-operaSoft"
-                  onClick={() => setSuggestModalOpen(false)}
+                  onClick={closeSuggestModal}
+                  ref={suggestInitialFocusRef}
+                  aria-label="Fermer la fenêtre de proposition"
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -1931,6 +1913,7 @@ function App() {
                   value={suggestForm.name}
                   onChange={(event) => setSuggestForm((current) => ({ ...current, name: event.target.value }))}
                   className="w-full rounded-xl border border-anthracite/80 bg-black/20 px-3 py-2 text-sm text-mist placeholder:text-mist/45 focus:border-opera/60 focus:outline-none"
+                  aria-label="Nom"
                 />
                 <input
                   type="email"
@@ -1938,12 +1921,14 @@ function App() {
                   value={suggestForm.email}
                   onChange={(event) => setSuggestForm((current) => ({ ...current, email: event.target.value }))}
                   className="w-full rounded-xl border border-anthracite/80 bg-black/20 px-3 py-2 text-sm text-mist placeholder:text-mist/45 focus:border-opera/60 focus:outline-none"
+                  aria-label="Email"
                 />
                 <div className="grid gap-3 md:grid-cols-[1fr_1fr]">
                   <select
                     value={suggestForm.category}
                     onChange={(event) => setSuggestForm((current) => ({ ...current, category: event.target.value }))}
                     className="w-full rounded-xl border border-anthracite/80 bg-black/20 px-3 py-2 text-sm text-mist focus:border-opera/60 focus:outline-none"
+                    aria-label="Categorie"
                   >
                     {NAV_ITEMS.map((item) => (
                       <option key={`suggest-cat-${item}`} value={item}>
@@ -1957,6 +1942,7 @@ function App() {
                     value={suggestForm.location}
                     onChange={(event) => setSuggestForm((current) => ({ ...current, location: event.target.value }))}
                     className="w-full rounded-xl border border-anthracite/80 bg-black/20 px-3 py-2 text-sm text-mist placeholder:text-mist/45 focus:border-opera/60 focus:outline-none"
+                    aria-label="Lieu ou quartier"
                   />
                 </div>
                 <textarea
@@ -1965,14 +1951,16 @@ function App() {
                   value={suggestForm.pitch}
                   onChange={(event) => setSuggestForm((current) => ({ ...current, pitch: event.target.value }))}
                   className="w-full rounded-xl border border-anthracite/80 bg-black/20 px-3 py-2 text-sm text-mist placeholder:text-mist/45 focus:border-opera/60 focus:outline-none"
+                  aria-label="Pitch de la tchatche"
                 />
                 <div className="flex items-center justify-between gap-3">
                   <p className="text-xs text-mist/60">* champs obligatoires</p>
                   <button
                     type="submit"
+                    disabled={suggestSubmitting}
                     className="rounded-full border border-opera/60 px-4 py-2 text-xs font-semibold uppercase tracking-[0.1em] text-operaSoft transition hover:bg-opera/10"
                   >
-                    Envoyer
+                    {suggestSubmitting ? 'Envoi...' : 'Envoyer'}
                   </button>
                 </div>
                 {suggestionSent && <p className="text-xs text-operaSoft">{suggestionSent}</p>}
@@ -1996,16 +1984,25 @@ function App() {
               transition={{ duration: 0.24 }}
               className="episode-shell max-h-[86vh] w-full max-w-xl overflow-y-auto rounded-2xl p-5"
               onClick={(event) => event.stopPropagation()}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby={quoteDialogTitleId}
+              ref={quoteDialogRef}
+              tabIndex={-1}
             >
               <div className="mb-4 flex items-start justify-between gap-3">
                 <div>
                   <p className="text-xs uppercase tracking-[0.15em] text-mist/55">Partage d extrait</p>
-                  <h3 className="font-serif text-3xl text-opera">{quoteModal.episode.title}</h3>
+                  <h3 id={quoteDialogTitleId} className="font-serif text-3xl text-opera">
+                    {quoteModal.episode.title}
+                  </h3>
                 </div>
                 <button
                   type="button"
                   className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-anthracite/80 text-mist/80 transition hover:border-opera/50 hover:text-operaSoft"
                   onClick={closeQuoteModal}
+                  ref={quoteInitialFocusRef}
+                  aria-label="Fermer la fenêtre de partage"
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -2015,7 +2012,7 @@ function App() {
                 <div>
                   <div className="mb-2 flex items-center justify-between text-xs uppercase tracking-[0.12em] text-mist/60">
                     <span>Debut</span>
-                    <span>{formatTime(quoteStart)}</span>
+                    <span>{formatAudioTime(quoteStart)}</span>
                   </div>
                   <input
                     type="range"
@@ -2053,7 +2050,7 @@ function App() {
               </div>
 
               <div className="mt-5 rounded-xl border border-anthracite/75 bg-black/25 p-3 text-sm text-mist/85">
-                Segment: {formatTime(quoteStart)} {'->'} {formatTime(quoteEnd)}
+                Segment: {formatAudioTime(quoteStart)} {'->'} {formatAudioTime(quoteEnd)}
               </div>
 
               <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
